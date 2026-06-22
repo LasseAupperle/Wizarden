@@ -6,11 +6,12 @@
 # variables) to the Render backend origin, e.g. https://wizarden-server.onrender.com
 # VITE_ENABLE_DEBUG defaults to "false"; set "true" only for a debug build.
 [build]
-  command = "corepack enable && pnpm install --frozen-lockfile && pnpm --filter @wizarden/shared build && pnpm --filter @wizarden/client build"
+  command = "pnpm install --frozen-lockfile && pnpm --filter @wizarden/shared build && pnpm --filter @wizarden/client build"
   publish = "packages/client/dist"
 
 [build.environment]
   NODE_VERSION = "20"
+  COREPACK_ENABLE_DOWNLOAD_PROMPT = "0"
   VITE_ENABLE_DEBUG = "false"
 
 # SPA fallback: every route serves index.html so client-side screens resolve.

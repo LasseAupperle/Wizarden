@@ -24,6 +24,7 @@ import {
 } from '../engine/game.js';
 import { awaitingDecisionSeats, playerAt as enginePlayerAt, type GameState } from '../engine/internalState.js';
 import { validateSpecials } from '../engine/deck.js';
+import { decideBotMove } from '../bots/randomBot.js';
 
 export interface RoomPlayer {
   seat: number;
@@ -38,6 +39,7 @@ export interface RoomPlayer {
 export interface RoomOptions {
   roundSummaryMs?: number;
   enableDebug?: boolean;
+  botDelayMs?: number;
 }
 
 export type RoomResult = ActionResult | { ok: false; error: { code: ErrorCode; message: string } };
@@ -66,12 +68,15 @@ export class Room {
 
   private readonly roundSummaryMs: number;
   private readonly enableDebug: boolean;
+  private readonly botDelayMs: number;
   private advanceTimer: ReturnType<typeof setTimeout> | null = null;
+  private botTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(code: string, opts: RoomOptions = {}) {
     this.code = code;
     this.roundSummaryMs = opts.roundSummaryMs ?? ROUND_SUMMARY_MS;
     this.enableDebug = opts.enableDebug ?? false;
+    this.botDelayMs = opts.botDelayMs ?? 250;
   }
 
   // ---- lobby ----
@@ -202,6 +207,51 @@ export class Room {
   private afterMutation(): void {
     if (this.game?.phase === 'roundEnd') this.scheduleAdvance();
     this.recomputePause();
+    this.driveBots();
+  }
+
+  // ---- bots (debug only) ----
+
+  /** The seat of a bot that must act now (its turn or a decision it owes), else null. */
+  private nextBotActor(): number | null {
+    const g = this.game;
+    if (!g) return null;
+    if (
+      g.currentTurnSeat != null &&
+      (g.phase === 'bidding' || g.phase === 'trick') &&
+      this.playerBySeat(g.currentTurnSeat)?.isBot
+    ) {
+      return g.currentTurnSeat;
+    }
+    for (const seat of awaitingDecisionSeats(g)) {
+      if (this.playerBySeat(seat)?.isBot) return seat;
+    }
+    return null;
+  }
+
+  private driveBots(): void {
+    if (this.botTimer) {
+      clearTimeout(this.botTimer);
+      this.botTimer = null;
+    }
+    const g = this.game;
+    if (!g || g.phase === 'gameOver') return;
+    const seat = this.nextBotActor();
+    if (seat === null) return;
+    this.botTimer = setTimeout(() => {
+      this.botTimer = null;
+      this.performBotMove(seat);
+      this.onChange();
+    }, this.botDelayMs);
+  }
+
+  private performBotMove(seat: number): void {
+    if (!this.game) return;
+    const move = decideBotMove(this.game, seat);
+    if (!move) return;
+    if (move.kind === 'bid') this.bid(seat, move.bid);
+    else if (move.kind === 'play') this.play(seat, move.cardId, move.decision);
+    else this.resolve(seat, move.payload);
   }
 
   // ---- disconnect / reconnect / departures (Phase 5) ----
@@ -311,5 +361,9 @@ export class Room {
 
   dispose(): void {
     this.clearTimer();
+    if (this.botTimer) {
+      clearTimeout(this.botTimer);
+      this.botTimer = null;
+    }
   }
 }

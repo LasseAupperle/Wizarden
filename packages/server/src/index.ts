@@ -11,6 +11,7 @@ export interface WizardenServerOptions {
   clientOrigin?: string;
   enableDebug?: boolean;
   roundSummaryMs?: number;
+  botDelayMs?: number;
 }
 
 export interface WizardenServer {
@@ -39,7 +40,11 @@ export function createWizardenServer(options: WizardenServerOptions = {}): Wizar
   });
 
   const sessions = new SessionStore();
-  const roomManager = new RoomManager({ enableDebug, roundSummaryMs: options.roundSummaryMs });
+  const roomManager = new RoomManager({
+    enableDebug,
+    roundSummaryMs: options.roundSummaryMs,
+    botDelayMs: options.botDelayMs,
+  });
 
   io.on('connection', (socket) => {
     registerSocketHandlers(io, socket, { roomManager, sessions, enableDebug });

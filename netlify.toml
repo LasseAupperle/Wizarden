@@ -10,7 +10,7 @@
   publish = "packages/client/dist"
 
 [build.environment]
-  NODE_VERSION = "20"
+  NODE_VERSION = "22"
   COREPACK_ENABLE_DOWNLOAD_PROMPT = "0"
   VITE_ENABLE_DEBUG = "false"
 

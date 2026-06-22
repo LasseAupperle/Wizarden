@@ -18,7 +18,7 @@ services:
     healthCheckPath: /health
     envVars:
       - key: NODE_VERSION
-        value: "20"
+        value: "22"
       - key: COREPACK_ENABLE_DOWNLOAD_PROMPT
         value: "0"
       - key: ENABLE_DEBUG

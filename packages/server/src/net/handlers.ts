@@ -100,8 +100,7 @@ export function registerSocketHandlers(io: Io, socket: Sock, deps: HandlerDeps):
     const player = room?.playerBySeat(session.seat);
     if (!room || !player) return emitError(socket, ErrorCodes.sessionGone, 'room gone');
     bindRoom(room);
-    player.socketId = socket.id;
-    player.connected = true;
+    room.markReconnected(player.seat, socket.id);
     socket.data = { roomCode: room.code, seat: player.seat } satisfies SocketCtx;
     socket.join(room.code);
     socket.emit(ServerEvents.roomJoined, { code: room.code, token, state: projectFor(room, player.seat) });
@@ -176,7 +175,37 @@ export function registerSocketHandlers(io: Io, socket: Sock, deps: HandlerDeps):
     });
   });
 
-  // ---- disconnect (basic; full reconnect/departure logic in Phase 5) ----
+  // ---- departures (§7.6) ----
+
+  const departSeat = (room: Room, seat: number): void => {
+    const rp = room.playerBySeat(seat);
+    const token = rp?.token ?? null;
+    const name = rp?.name ?? '';
+    const r = room.leave(seat);
+    if (!r.ok) return emitError(socket, r.error.code, r.error.message);
+    if (token) sessions.remove(token); // invalidate: a rejoin must now fail
+    io.to(room.code).emit(ServerEvents.peerLeft, { seat, name });
+    if (!room.started) roomManager.reapEmpty();
+    broadcastRoom(io, room);
+  };
+
+  socket.on(ClientEvents.roomLeave, () => {
+    withRoom((room, seat) => {
+      departSeat(room, seat);
+      socket.data = {} satisfies SocketCtx;
+      socket.leave(room.code);
+    });
+  });
+
+  socket.on(ClientEvents.hostRemovePlayer, ({ seat }) => {
+    withRoom((room, hostSeat) => {
+      if (seat === undefined) return emitError(socket, ErrorCodes.badRequest, 'seat required');
+      if (room.playerBySeat(hostSeat)?.isHost !== true) return emitError(socket, ErrorCodes.notHost, 'host only');
+      departSeat(room, seat);
+    });
+  });
+
+  // ---- disconnect (seat retained; pause if the game was waiting on this seat) ----
 
   socket.on('disconnect', () => {
     const ctx = socket.data as SocketCtx;
@@ -184,8 +213,7 @@ export function registerSocketHandlers(io: Io, socket: Sock, deps: HandlerDeps):
     const room = roomManager.get(ctx.roomCode);
     const player = room?.playerBySeat(ctx.seat);
     if (!room || !player) return;
-    player.connected = false;
-    player.socketId = null;
+    room.markDisconnected(player.seat);
     io.to(room.code).emit(ServerEvents.peerDisconnected, { seat: player.seat, name: player.name });
     if (!room.started) roomManager.reapEmpty();
     broadcastRoom(io, room);

@@ -9,6 +9,7 @@ import {
   BASE_DECK_SIZE,
   ErrorCodes,
   MAX_PLAYERS,
+  MIN_PLAYERS,
   MIN_PLAYERS_DEBUG,
   SUITS,
   isSpecial,
@@ -362,6 +363,45 @@ export function advanceRound(state: GameState): ActionResult {
   } else {
     finishGame(s);
   }
+  return { ok: true, state: s };
+}
+
+/**
+ * Remove a player mid-game (leave or host-removal), §7.6. With 3+ active seats
+ * remaining the game continues short-handed: an in-progress round is VOIDED and
+ * the SAME round number re-dealt to the remaining players (no scores recorded);
+ * the original total round count is preserved and the start marker skips the
+ * departed seat. Dropping below 3 active ends the game with standings.
+ */
+export function removePlayer(state: GameState, seat: number): ActionResult {
+  const s = clone(state);
+  const p = playerAt(s, seat);
+  if (!p) return fail(ErrorCodes.badRequest, 'unknown seat');
+  if (!p.inPlay) return { ok: true, state: s }; // already departed
+
+  p.inPlay = false;
+  p.hand = [];
+  delete s.decisions[seat];
+
+  if (activeCount(s) < MIN_PLAYERS) {
+    finishGame(s);
+    return { ok: true, state: s };
+  }
+
+  // Keep the start marker on an active seat.
+  if (!playerAt(s, s.startMarkerSeat)?.inPlay) {
+    s.startMarkerSeat = nextActiveSeat(s, s.startMarkerSeat);
+  }
+
+  // Void an in-progress round and re-deal the SAME round number to the remainder.
+  const inProgress = s.phase !== 'roundEnd' && s.phase !== 'gameOver';
+  if (inProgress) {
+    const roundNumber = s.round?.roundNumber ?? 1;
+    s.decisions = {};
+    dealAndStartRound(s, roundNumber);
+  }
+  // (At roundEnd the round is already scored; the scheduled auto-advance deals
+  //  the next round to the remaining players.)
   return { ok: true, state: s };
 }
 

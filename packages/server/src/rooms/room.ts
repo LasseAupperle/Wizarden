@@ -18,10 +18,11 @@ import {
   applyPlay,
   applyResolve,
   createGame,
+  removePlayer,
   type ActionResult,
   type ResolvePayload,
 } from '../engine/game.js';
-import type { GameState } from '../engine/internalState.js';
+import { awaitingDecisionSeats, playerAt as enginePlayerAt, type GameState } from '../engine/internalState.js';
 import { validateSpecials } from '../engine/deck.js';
 
 export interface RoomPlayer {
@@ -60,8 +61,8 @@ export class Room {
   /** Invoked after any state change (incl. the timer-driven auto-advance). */
   onChange: () => void = () => {};
 
-  /** Broadcast bookkeeping so round:result / game:over fire once per transition. */
-  flags = { lastResultRound: -1, gameOverEmitted: false };
+  /** Broadcast bookkeeping so round:result / game:over / pause fire once per transition. */
+  flags = { lastResultRound: -1, gameOverEmitted: false, paused: false };
 
   private readonly roundSummaryMs: number;
   private readonly enableDebug: boolean;
@@ -157,7 +158,7 @@ export class Room {
       seed: randomSeed(),
     });
     this.started = true;
-    this.flags = { lastResultRound: -1, gameOverEmitted: false };
+    this.flags = { lastResultRound: -1, gameOverEmitted: false, paused: false };
     this.afterMutation();
     return { ok: true, state: this.game };
   }
@@ -179,7 +180,7 @@ export class Room {
     this.clearTimer();
     this.started = false;
     this.game = null;
-    this.flags = { lastResultRound: -1, gameOverEmitted: false };
+    this.flags = { lastResultRound: -1, gameOverEmitted: false, paused: false };
     return { ok: true, state: {} as GameState };
   }
 
@@ -200,6 +201,93 @@ export class Room {
 
   private afterMutation(): void {
     if (this.game?.phase === 'roundEnd') this.scheduleAdvance();
+    this.recomputePause();
+  }
+
+  // ---- disconnect / reconnect / departures (Phase 5) ----
+
+  /** Is the seat still an active participant (in the lobby everyone is active)? */
+  private isActiveSeat(seat: number): boolean {
+    if (!this.started || !this.game) return true;
+    return enginePlayerAt(this.game, seat)?.inPlay ?? false;
+  }
+
+  /** Mark a seat disconnected (seat retained). Returns whether the game now pauses. */
+  markDisconnected(seat: number): void {
+    const p = this.playerBySeat(seat);
+    if (!p) return;
+    p.connected = false;
+    p.socketId = null;
+    this.migrateHost();
+    this.recomputePause();
+  }
+
+  markReconnected(seat: number, socketId: string): void {
+    const p = this.playerBySeat(seat);
+    if (!p) return;
+    p.connected = true;
+    p.socketId = socketId;
+    this.recomputePause();
+  }
+
+  /** Voluntary leave / host removal. Lobby frees the seat; mid-game departs (§7.6). */
+  leave(seat: number): RoomResult {
+    if (!this.started || !this.game) {
+      this.players = this.players.filter((p) => p.seat !== seat);
+      this.migrateHost();
+      return { ok: true, state: {} as GameState };
+    }
+    this.clearTimer();
+    const result = removePlayer(this.game, seat);
+    if (!result.ok) return result;
+    this.game = result.state;
+    const rp = this.playerBySeat(seat);
+    if (rp) {
+      rp.connected = false;
+      rp.token = null; // invalidate; a rejoin must fail
+      rp.socketId = null;
+    }
+    this.migrateHost();
+    this.afterMutation();
+    return { ok: true, state: this.game };
+  }
+
+  removeByHost(hostSeat: number, targetSeat: number): RoomResult {
+    if (this.playerBySeat(hostSeat)?.isHost !== true) return fail(ErrorCodes.notHost, 'host only');
+    if (!this.playerBySeat(targetSeat)) return fail(ErrorCodes.badRequest, 'unknown seat');
+    return this.leave(targetSeat);
+  }
+
+  /** Move host to the next connected active seat when the current host is gone. */
+  private migrateHost(): void {
+    const hostOk = this.players.some((p) => p.isHost && p.connected && this.isActiveSeat(p.seat));
+    if (hostOk) return;
+    for (const p of this.players) p.isHost = false;
+    const candidate = this.players
+      .filter((p) => p.connected && this.isActiveSeat(p.seat) && !p.isBot)
+      .sort((a, b) => a.seat - b.seat)[0];
+    if (candidate) candidate.isHost = true;
+  }
+
+  /** Pause only while the game is waiting on a DISCONNECTED seat (its turn or a decision it owes). */
+  recomputePause(): void {
+    const g = this.game;
+    if (!g) return;
+    const awaited = new Set<number>();
+    if (g.currentTurnSeat != null) awaited.add(g.currentTurnSeat);
+    for (const s of awaitingDecisionSeats(g)) awaited.add(s);
+    let paused = false;
+    let name: string | null = null;
+    for (const seat of awaited) {
+      const rp = this.playerBySeat(seat);
+      if (rp && !rp.connected && !rp.isBot) {
+        paused = true;
+        name = rp.name;
+        break;
+      }
+    }
+    g.paused = paused;
+    g.pausedForName = name;
   }
 
   private scheduleAdvance(): void {

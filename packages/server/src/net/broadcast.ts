@@ -118,4 +118,13 @@ export function broadcastRoom(io: Io, room: Room): void {
     room.flags.gameOverEmitted = true;
     io.to(room.code).emit(ServerEvents.gameOver, { standings: g.standings });
   }
+
+  // Pause toggle (fired once per transition).
+  if (g.paused && !room.flags.paused) {
+    room.flags.paused = true;
+    io.to(room.code).emit(ServerEvents.gamePaused, { name: g.pausedForName ?? undefined });
+  } else if (!g.paused && room.flags.paused) {
+    room.flags.paused = false;
+    io.to(room.code).emit(ServerEvents.gameResumed, {});
+  }
 }

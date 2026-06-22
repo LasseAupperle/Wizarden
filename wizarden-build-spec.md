@@ -539,3 +539,60 @@ Each phase lists its **goal**, **deliverables**, and a **runnable acceptance gat
 ## 12. Definition of done (v1)
 
 3–6 players on phones can create/join a room by code or link, the host can choose which special cards are in play (with Dragon and Fairy paired), and the group can play a complete, fully rules-enforced game of Wizard (30-Year Edition) — the correct fixed number of rounds for the initial player count, all 9 special cards and their interactions working per §7 — with correct scoring, an always-available scoreboard, **round summaries that advance automatically**, and a Play Again that resets to the lobby. Players who drop keep their seats and rejoin into the live game; **if a player leaves or is removed mid-game the game continues short-handed (re-dealing the current round) as long as 3+ players remain, otherwise it ends with standings**; the host role migrates if the host drops; stale sessions route cleanly back to Landing. The engine is pure and unit-tested; the server is integration-tested over real sockets; the special-card resolution order is centralized and pinned by tests. The client deploys to Netlify and the server to Render via env-configured URLs.
+
+---
+
+## 13. Menus & navigation
+
+**Navigation model.** Which screen is shown is derived from connection state plus `ClientGameState.phase`: **Landing** (no room joined), **Lobby** (`phase === 'lobby'`), **Game** (in an active round), **GameOver** (`phase === 'gameOver'`). Do not build a heavyweight router; a small screen selector driven by store state is enough. Menus and overlays are client-local UI state (kept in the Zustand store or local component state), layered on top of the current screen. They never alter authoritative game state and never block incoming `state:update` events. The only menu action that sends a server intent is **Leave**.
+
+**Components to add (named):**
+- **`AppMenuButton` + `AppMenu`:** a menu button fixed in the top bar (gear or hamburger, thumb-reachable). Opening it shows a slide-in panel or bottom sheet containing: How to Play, Sound on/off, Leave game, and Close. Available on every screen (Landing, Lobby, Game, GameOver). It overlays the current screen and is dismissible by tapping outside or pressing Close.
+- **`SettingsPanel`** (can live inside `AppMenu`): sound on/off, and an optional animations on/off toggle. Persist both to localStorage and read them on load. Keep it minimal per scope.
+- **`HowToPlay`:** a scrollable rules reference reachable from `AppMenu` on every screen and from a "How to play" link on Landing. Content is an original summary of the game flow, scoring (20 + 10 × bid trick when correct, −10 per trick off when wrong), and a per-special-card reference for all 9 cards. This matters because the game has a lot of special-card interactions and players will want a lookup mid-game. Source the content from `wizard-30-year-edition-rules.md`. Do not reproduce AMIGO text verbatim; write it in your own words.
+- **`ConfirmDialog`:** a reusable modal for destructive or irreversible actions. Used by Leave game ("Leave this game? You cannot rejoin once removed.") and by host Play Again if a game is mid-progress.
+- **Landing additions:** primary actions Create room and Join room (already specified), plus secondary entries How to Play and a sound toggle.
+- **Lobby:** keep the existing host controls and special-card picker; surface the `AppMenuButton` and an "Invite" affordance that copies the shareable room link.
+- **GameOver additions:** host Play Again (returns the room to lobby, scores reset), and a Leave entry for everyone that returns them to Landing.
+
+**Behaviour rules:**
+- Opening any menu or overlay mid-turn forfeits nothing and pauses nothing for other players. Closing returns to the live view, which reflects the latest authoritative state.
+- Leave routes through the departure flow in §7.6: in lobby it frees the seat, mid-game it continues the game for the others if 3+ remain, otherwise it ends the game. After leaving, the client clears its session token and returns to Landing.
+- The scoreboard stays its own always-available popup (per §6.2 and Phase 8); it is **not** buried inside `AppMenu`.
+- All overlays respect mobile safe-area insets and trap focus while open for accessibility.
+
+**Acceptance gate** (add to **Phase 7** for menus, **Phase 8** for in-game menu polish): from any screen the user can open `AppMenu`, toggle sound (persists across reload), open How to Play and scroll the full special-card reference, and Leave with a confirm step that returns them to Landing and triggers the §7.6 flow for the others. Opening a menu during the player's own turn does not time out or forfeit anything.
+
+---
+
+## 14. Visual design & polish
+
+**Intent.** A clean, modern mobile card-game feel with a light mystical accent that fits "Wizard," not a generic admin-panel look and not a cheesy fantasy one. **Dark theme as the default** (cards and suit colours pop against it, and it suits fast night-time play with friends). Everything must be legible at a glance on a phone held at arm's length.
+
+**Build the token foundation first.** Before building screen components, create `styles/theme.css` with CSS variables and extend the Tailwind config to map to them, so every screen, card, and menu pulls from one source. Then build a small set of styled primitives used everywhere: `Button`, `IconButton`, `Card`, `Sheet` (bottom sheet), `Modal`, `Badge` (for bids and tricks-won), `Banner` (paused or reconnecting). Consistency comes from these primitives, not from per-screen styling.
+
+**Colour palette (starting values, tune freely):**
+- Background `#14121C`. Surface (panels, cards area) `#1F1B2B`. Elevated surface (cards, sheets) `#2A2540`. Border/divider `rgba(244,242,250,0.08)`.
+- Primary accent (wizard violet, used for primary buttons, turn highlight, focus): `#7C5CFF`.
+- Premium accent (gold, used sparingly for the wordmark and special-card emblem ring): `#D9A441`.
+- Suit colours, tuned for vibrancy and mutual contrast on dark: red `#E5484D`, blue `#3B82F6`, green `#2FB87A`, yellow `#FFD23F`. Keep the gold accent deeper/more amber than suit yellow so the two never read as the same colour.
+- Text primary `#F4F2FA`, text secondary `#A8A2BC`. Positive score `#2FB87A`, negative score `#E5484D`.
+
+**Typography (two families, for performance):**
+- Wordmark and major screen titles: **Cinzel** (an engraved fantasy serif) for the Wizarden logo and headings only.
+- UI, body, and card numerals: **Outfit** (a friendly geometric sans with clean numerals) with a system-font fallback. Use it for everything else, including the big numbers on cards, where legibility matters most.
+
+**Card design.** Aspect ratio ~5:7, corner radius ~12px, soft low-spread shadow on the dark background.
+- **Number cards:** flat and minimal. A large central numeral in Outfit bold, the suit shown as the card's colour fill or a strong colour band, plus small corner indices (numeral + suit marker) top-left and bottom-right. Because the classic Wizard suits are colours only, pair each suit with a small distinct shape/glyph (and a letter) so the game is playable for colour-blind users. **Do not rely on colour alone.**
+- **Special cards:** visibly richer than number cards. Each of the 9 gets a unique emblem, a subtle gradient/texture, a violet or gold border ring that signals "special," and the card name in small caps along the bottom. Suggested emblems using `lucide-react` where available, custom simple SVG otherwise, all at one consistent stroke weight: Wizard sparkles/star, Jester a mask, Dragon flame, Fairy small wings/sparkles, Bomb a bomb, Werewolf a moon, Juggler interlocking circles, Cloud a cloud, Witch a hat, Vampire a bat, Shapeshifter transform arrows.
+- A simple, consistent **card back** for face-down piles and the trump pile.
+
+**Layout (portrait, mobile first).** Honour safe-area insets with `env(safe-area-inset-*)`. Top bar: room code, `AppMenuButton`, scoreboard button, and the always-visible trump indicator. Below it, opponents in a row showing name, bid, tricks-won, a connection dot, and a "left" state. Centre: the current trick. Bottom: the player's hand fanned, with their own bid and tricks-won status. Action prompts (bid input, decision prompt) appear as a bottom sheet above the hand so the controls sit under the thumb. Illegal cards in hand are visibly dimmed and non-tappable.
+
+**Motion.** Cards slide and slightly scale into the trick area, ~150–250ms ease-out. A brief sweep/highlight when a trick is won. Score changes float up as `+50` (green) or `−20` (red) for ~1s. The active player's seat and the player's turn get a subtle violet highlight, not a flashing one. Honour `prefers-reduced-motion` by disabling non-essential motion. Keep all of it snappy, never slow enough to delay play.
+
+**Feedback and states to style explicitly.** Whose turn it is (clear highlight), the seats still owed a decision (a small marker driven by `awaitingDecisionSeats`), the paused/reconnecting banner, legal vs illegal cards, the won-trick moment, and the score deltas. Provide tactile press states on every tappable element and a visible `focus-visible` ring for accessibility. Button variants: primary filled violet, secondary outline, ghost, destructive red.
+
+**Constraints.** Original assets only. No AMIGO artwork. Only open-licensed fonts and icons. Everything must stay smooth on a mid-range phone.
+
+**Acceptance gate** (add to **Phase 8**). A quick visual review on a phone-sized viewport confirms: all colours, spacing, radii, and fonts come from the shared tokens; number cards are readable at arm's length; suits are distinguishable without relying on colour; special cards are clearly distinct from number cards and from each other; the slide-to-trick animation is smooth and `prefers-reduced-motion` is respected; safe areas are honoured; and every menu and overlay uses the same styled primitives as the rest of the app.

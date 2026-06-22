@@ -61,6 +61,8 @@ export interface GameState {
   scoreboard: RoundResult[][]; // [round][playerInActiveOrder]
   lastRoundResult: RoundResult[] | null;
   standings: PlayerPublic[] | null; // populated at gameOver
+  paused?: boolean; // true while waiting on a disconnected seat (Phase 5)
+  pausedForName?: string | null;
 }
 
 // ---- pure helpers over GameState ----

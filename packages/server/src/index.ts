@@ -1,45 +1,77 @@
-import { createServer } from 'node:http';
+import { createServer, type Server as HttpServer } from 'node:http';
 import { pathToFileURL } from 'node:url';
-import express from 'express';
+import express, { type Express } from 'express';
 import { Server } from 'socket.io';
 import type { ClientToServerEvents, ServerToClientEvents } from '@wizarden/shared';
+import { RoomManager } from './rooms/roomManager.js';
+import { SessionStore } from './rooms/sessions.js';
+import { registerSocketHandlers } from './net/handlers.js';
 
-const PORT = Number(process.env.PORT ?? 3001);
-const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN ?? 'http://localhost:5173';
+export interface WizardenServerOptions {
+  clientOrigin?: string;
+  enableDebug?: boolean;
+  roundSummaryMs?: number;
+}
 
-// CORS: exactly the configured client origin plus localhost dev. No wildcards.
-const ALLOWED_ORIGINS = Array.from(new Set([CLIENT_ORIGIN, 'http://localhost:5173']));
+export interface WizardenServer {
+  app: Express;
+  httpServer: HttpServer;
+  io: Server<ClientToServerEvents, ServerToClientEvents>;
+  roomManager: RoomManager;
+  sessions: SessionStore;
+  listen: (port: number) => Promise<number>;
+  close: () => Promise<void>;
+}
 
-export function createApp(): express.Express {
+export function createWizardenServer(options: WizardenServerOptions = {}): WizardenServer {
+  const clientOrigin = options.clientOrigin ?? process.env.CLIENT_ORIGIN ?? 'http://localhost:5173';
+  const enableDebug = options.enableDebug ?? process.env.ENABLE_DEBUG === 'true';
+  const allowedOrigins = Array.from(new Set([clientOrigin, 'http://localhost:5173']));
+
   const app = express();
   app.get('/health', (_req, res) => {
     res.json({ ok: true, name: 'wizarden-server', version: '0.1.0' });
   });
-  return app;
-}
 
-export function createIo(
-  httpServer: ReturnType<typeof createServer>,
-): Server<ClientToServerEvents, ServerToClientEvents> {
+  const httpServer = createServer(app);
   const io = new Server<ClientToServerEvents, ServerToClientEvents>(httpServer, {
-    cors: { origin: ALLOWED_ORIGINS, methods: ['GET', 'POST'] },
+    cors: { origin: allowedOrigins, methods: ['GET', 'POST'] },
   });
+
+  const sessions = new SessionStore();
+  const roomManager = new RoomManager({ enableDebug, roundSummaryMs: options.roundSummaryMs });
+
   io.on('connection', (socket) => {
-    // Phase 4 wires room/game handlers here.
-    socket.on('disconnect', () => {
-      /* Phase 5 handles reconnect/departure. */
-    });
+    registerSocketHandlers(io, socket, { roomManager, sessions, enableDebug });
   });
-  return io;
+
+  return {
+    app,
+    httpServer,
+    io,
+    roomManager,
+    sessions,
+    listen: (port: number) =>
+      new Promise<number>((resolve) => {
+        httpServer.listen(port, () => {
+          const addr = httpServer.address();
+          resolve(typeof addr === 'object' && addr ? addr.port : port);
+        });
+      }),
+    close: () =>
+      new Promise<void>((resolve) => {
+        io.close();
+        httpServer.close(() => resolve());
+      }),
+  };
 }
 
 // Boot only when run directly (not when imported by tests).
 const isMain = process.argv[1] ? import.meta.url === pathToFileURL(process.argv[1]).href : false;
-if (isMain || process.env.WIZARDEN_FORCE_LISTEN === 'true') {
-  const app = createApp();
-  const httpServer = createServer(app);
-  createIo(httpServer);
-  httpServer.listen(PORT, () => {
-    console.log(`[wizarden] server listening on :${PORT} (origins: ${ALLOWED_ORIGINS.join(', ')})`);
+if (isMain) {
+  const port = Number(process.env.PORT ?? 3001);
+  const server = createWizardenServer();
+  void server.listen(port).then((boundPort) => {
+    console.log(`[wizarden] server listening on :${boundPort}`);
   });
 }

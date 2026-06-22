@@ -1,0 +1,10 @@
+packages:
+  - 'packages/*'
+
+allowBuilds:
+  esbuild: true
+
+# esbuild ships a native binary fetched in a postinstall script; Vite + Vitest
+# need it. Explicitly allow that build script to run.
+onlyBuiltDependencies:
+  - esbuild

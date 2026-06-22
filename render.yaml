@@ -1,0 +1,25 @@
+# Render Blueprint for the Wizarden Socket.IO backend.
+# Connect this repo in the Render dashboard ("New +" > "Blueprint") and Render
+# reads this file. autoDeploy:true => every push to the connected branch (main)
+# triggers a rebuild + redeploy automatically.
+#
+# CLIENT_ORIGIN is left as sync:false (a "secret" you set in the dashboard) and
+# must equal the Netlify site origin, e.g. https://wizarden.netlify.app
+services:
+  - type: web
+    name: wizarden-server
+    runtime: node
+    plan: free
+    region: frankfurt
+    branch: main
+    autoDeploy: true
+    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter @wizarden/shared build && pnpm --filter @wizarden/server build
+    startCommand: node packages/server/dist/index.js
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      - key: ENABLE_DEBUG
+        value: "false"
+      - key: CLIENT_ORIGIN
+        sync: false

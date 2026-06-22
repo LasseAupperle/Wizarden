@@ -1,0 +1,20 @@
+# Netlify config for the Wizarden React client (built from the pnpm monorepo root).
+# Connect this repo in the Netlify dashboard ("Add new site" > "Import an existing
+# project"). Netlify reads this file; pushes to main then auto-build + deploy.
+#
+# Set VITE_SERVER_URL in the Netlify dashboard (Site settings > Environment
+# variables) to the Render backend origin, e.g. https://wizarden-server.onrender.com
+# VITE_ENABLE_DEBUG defaults to "false"; set "true" only for a debug build.
+[build]
+  command = "corepack enable && pnpm install --frozen-lockfile && pnpm --filter @wizarden/shared build && pnpm --filter @wizarden/client build"
+  publish = "packages/client/dist"
+
+[build.environment]
+  NODE_VERSION = "20"
+  VITE_ENABLE_DEBUG = "false"
+
+# SPA fallback: every route serves index.html so client-side screens resolve.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

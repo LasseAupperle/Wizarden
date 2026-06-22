@@ -26,6 +26,14 @@ export interface EnginePlayer {
   totalScore: number;
 }
 
+/** Resumable scratch state for the staged trick resolver (spec §7.2). */
+export interface TrickResolution {
+  wouldBeWinner: number; // rank winner ignoring a Bomb (also the post-Bomb leader)
+  voided: boolean; // a Bomb voided the trick
+  stageIndex: number; // next ResolveStage to process
+  jugglerPasses: Record<number, string>; // seat -> chosen card id (collective)
+}
+
 export interface RoundState {
   roundNumber: number; // 1-based
   cardsThisRound: number; // == roundNumber
@@ -35,6 +43,7 @@ export interface RoundState {
   trickNumber: number; // 0-based index of the current trick within the round
   leadSeat: number; // seat that leads the current trick
   currentTrick: TrickPlay[];
+  resolution?: TrickResolution; // present only while a completed trick is resolving
 }
 
 export interface GameState {

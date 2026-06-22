@@ -2,7 +2,8 @@
 // PURE. Functions here MUTATE a state object the caller already cloned; they
 // never clone or perform IO. game.ts owns validation + cloning + the public API.
 
-import type { RoundResult, Suit } from '@wizarden/shared';
+import type { PlayDecision, RoundResult, Suit, TrickPlay } from '@wizarden/shared';
+import { getBehavior } from './cards/registry.js';
 import { buildDeck, dealRound } from './deck.js';
 import {
   activeCount,
@@ -12,8 +13,8 @@ import {
   type GameState,
 } from './internalState.js';
 import { createRng } from './rng.js';
+import { makeCtx, resolveTrick } from './resolve.js';
 import { scoreRound } from './scoring.js';
-import { computeLedSuit, resolveBaseWinner } from './trick.js';
 
 /** Deal `roundNumber` cards to each active player, flip trump, resolve trump. */
 export function dealAndStartRound(state: GameState, roundNumber: number): void {
@@ -23,7 +24,6 @@ export function dealAndStartRound(state: GameState, roundNumber: number): void {
   const { hands, pile, trumpCard } = dealRound(deck, rng, seats.length, roundNumber);
   state.rngState = rng.getState();
 
-  // Reset per-round player fields; assign hands to active seats in order.
   for (const p of state.players) {
     p.bid = null;
     p.tricksWon = 0;
@@ -47,10 +47,34 @@ export function dealAndStartRound(state: GameState, roundNumber: number): void {
   state.lastRoundResult = null;
   state.phase = 'dealing';
 
+  applyPreBidAndTrump(state);
+}
+
+/**
+ * Run mandatory pre-bid steps (Werewolf swap, §7.1.3) then resolve trump-on-flip.
+ * A raised pre-bid decision (Werewolf in hand) SUPERSEDES the start-marker's
+ * trump choice. Extracted so tests can drive a hand-authored post-deal state.
+ */
+export function applyPreBidAndTrump(state: GameState): void {
+  runPreBidSteps(state);
+  if (Object.keys(state.decisions).length > 0) {
+    state.phase = 'preBid';
+    state.currentTurnSeat = null;
+    return;
+  }
   resolveTrumpOnFlip(state);
 }
 
-/** Apply the trump-on-flip mapping for the BASE deck (number/Wizard/Jester). */
+function runPreBidSteps(state: GameState): void {
+  const ctx = makeCtx(state);
+  for (const seat of activeSeats(state)) {
+    for (const card of playerAt(state, seat)!.hand) {
+      if (card.kind === 'special') getBehavior(card.special).preBid?.(ctx, seat);
+    }
+  }
+}
+
+/** Apply the trump-on-flip mapping (§7.3), registry-driven for specials. */
 export function resolveTrumpOnFlip(state: GameState): void {
   const round = state.round!;
   const tc = round.trumpCard;
@@ -66,14 +90,23 @@ export function resolveTrumpOnFlip(state: GameState): void {
     return;
   }
   if (tc.kind === 'wizard') {
-    // Start-marker holder chooses the trump colour.
-    state.phase = 'trumpDecision';
-    state.currentTurnSeat = null;
-    state.decisions[state.startMarkerSeat] = { kind: 'chooseTrump', seat: state.startMarkerSeat };
+    raiseChooseTrump(state);
     return;
   }
-  // Special trump cards are introduced in Phase 3 (registry-driven).
-  throw new Error(`trump-on-flip not implemented for ${tc.kind} in the base engine`);
+  // special card flipped -> ask its behavior
+  const outcome = getBehavior(tc.special).onTrumpFlip();
+  if (outcome.type === 'chooseTrump') {
+    raiseChooseTrump(state);
+  } else {
+    round.trumpSuit = null;
+    beginBidding(state);
+  }
+}
+
+function raiseChooseTrump(state: GameState): void {
+  state.phase = 'trumpDecision';
+  state.currentTurnSeat = null;
+  state.decisions[state.startMarkerSeat] = { kind: 'chooseTrump', seat: state.startMarkerSeat };
 }
 
 export function beginBidding(state: GameState): void {
@@ -112,45 +145,32 @@ export function recordPlayAndAdvance(
   state: GameState,
   seat: number,
   cardId: string,
-  decision: { type: 'none' },
+  decision: PlayDecision,
 ): void {
   const round = state.round!;
   const player = playerAt(state, seat)!;
   const cardIdx = player.hand.findIndex((c) => c.id === cardId);
   const card = player.hand[cardIdx]!;
   player.hand.splice(cardIdx, 1);
-  round.currentTrick.push({ seat, card, decision });
+  const play: TrickPlay = { seat, card, decision };
+  round.currentTrick.push(play);
+
+  // Play-time identity resolution (Vampire flips a fresh trump vs. a Werewolf).
+  if (card.kind === 'special') {
+    getBehavior(card.special).onPlay?.(makeCtx(state), play);
+  }
 
   if (round.currentTrick.length === activeCount(state)) {
-    finishTrick(state);
+    resolveTrick(state);
   } else {
     state.currentTurnSeat = nextActiveAfter(state, seat);
   }
 }
 
-function nextActiveAfter(state: GameState, fromSeat: number): number {
+export function nextActiveAfter(state: GameState, fromSeat: number): number {
   const seats = activeSeats(state);
   for (const s of seats) if (s > fromSeat) return s;
   return seats[0]!;
-}
-
-/** Resolve a completed BASE trick: award it, then continue or score the round. */
-export function finishTrick(state: GameState): void {
-  const round = state.round!;
-  const { ledSuit } = computeLedSuit(round.currentTrick);
-  const winner = resolveBaseWinner(round.currentTrick, ledSuit, round.trumpSuit);
-  playerAt(state, winner)!.tricksWon += 1;
-  round.leadSeat = winner;
-
-  const cardsRemain = activeSeats(state).some((s) => playerAt(state, s)!.hand.length > 0);
-  if (cardsRemain) {
-    round.trickNumber += 1;
-    round.currentTrick = [];
-    state.phase = 'trick';
-    state.currentTurnSeat = winner;
-  } else {
-    scoreRoundAndEnd(state);
-  }
 }
 
 /** Score every active player's round, update totals, enter roundEnd. */

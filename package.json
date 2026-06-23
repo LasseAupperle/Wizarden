@@ -9,7 +9,7 @@
   "scripts": {
     "build": "pnpm -r run build",
     "test": "pnpm -r run test",
-    "lint": "pnpm -r run lint",
+    "lint": "pnpm --filter @wizarden/shared run build && pnpm -r run lint",
     "dev": "pnpm -r --parallel run dev",
     "dev:server": "pnpm --filter @wizarden/server run dev",
     "dev:client": "pnpm --filter @wizarden/client run dev"

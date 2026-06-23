@@ -32,11 +32,14 @@ export function getSocket(): Socket {
   if (socket) return socket;
 
   socket = io(SERVER_URL, {
-    transports: ['websocket'],
+    // Default order: polling first, then upgrade to WebSocket. Keeping polling
+    // as a fallback lets the connection succeed behind VPNs/proxies that block
+    // raw WebSocket upgrades (where ws-only would silently never connect).
+    transports: ['polling', 'websocket'],
     reconnection: true,
     reconnectionDelay: 600,
     reconnectionDelayMax: 4000,
-    timeout: 8000,
+    timeout: 12000,
   });
 
   // Cold start (§17): if the first connection is slow, show "waking server".

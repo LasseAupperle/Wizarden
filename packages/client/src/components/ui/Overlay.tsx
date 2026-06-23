@@ -1,4 +1,5 @@
 import { useEffect, useRef, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { cn } from '../../lib/cn.js';
 
 interface OverlayProps {
@@ -52,11 +53,17 @@ export function Overlay({ open, onClose, children, placement = 'center', labelle
 
   if (!open) return null;
 
-  return (
+  // Portal to <body> so the overlay escapes any ancestor that establishes a
+  // containing block (e.g. the TopBar's backdrop-filter), which would otherwise
+  // pin `position: fixed` to the bar instead of the viewport.
+  return createPortal(
     <div
       className={cn(
         'fixed inset-0 z-50 flex bg-black/60 backdrop-blur-sm',
-        placement === 'center' ? 'items-center justify-center p-4' : 'items-end justify-center',
+        placement === 'center'
+          ? 'items-center justify-center p-4'
+          : 'items-end justify-center',
+        'pt-[env(safe-area-inset-top)]',
       )}
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
@@ -77,6 +84,7 @@ export function Overlay({ open, onClose, children, placement = 'center', labelle
       >
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

@@ -5,6 +5,7 @@ export interface ServerConfig {
   port: number;
   clientOrigin: string;
   enableDebug: boolean;
+  redisUrl?: string;
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
@@ -25,5 +26,11 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
     process.exit(1);
   }
 
-  return { port, clientOrigin, enableDebug: env.ENABLE_DEBUG === 'true' };
+  const redisUrl = env.REDIS_URL?.trim() || undefined;
+  if (redisUrl && !/^rediss?:\/\//.test(redisUrl)) {
+    console.error(`[wizarden] FATAL: REDIS_URL must start with redis:// or rediss:// (got "${redisUrl}")`);
+    process.exit(1);
+  }
+
+  return { port, clientOrigin, enableDebug: env.ENABLE_DEBUG === 'true', redisUrl };
 }

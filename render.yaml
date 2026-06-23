@@ -25,3 +25,7 @@ services:
         value: "false"
       - key: CLIENT_ORIGIN
         sync: false
+      # Optional: Upstash Redis URL for a PERSISTENT leaderboard (survives restarts).
+      # Set in the dashboard as a rediss:// URL. Leave unset = in-memory leaderboard.
+      - key: REDIS_URL
+        sync: false

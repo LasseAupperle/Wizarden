@@ -6,6 +6,7 @@ import type { ClientToServerEvents, ServerToClientEvents } from '@wizarden/share
 import { RoomManager } from './rooms/roomManager.js';
 import { SessionStore } from './rooms/sessions.js';
 import { InMemoryLeaderboard, type LeaderboardStore } from './rooms/leaderboard.js';
+import { RedisLeaderboard } from './rooms/redisLeaderboard.js';
 import { registerSocketHandlers } from './net/handlers.js';
 import { loadConfig } from './config.js';
 
@@ -15,6 +16,7 @@ export interface WizardenServerOptions {
   roundSummaryMs?: number;
   botDelayMs?: number;
   leaderboard?: LeaderboardStore;
+  redisUrl?: string;
 }
 
 export interface WizardenServer {
@@ -33,7 +35,12 @@ export function createWizardenServer(options: WizardenServerOptions = {}): Wizar
   const enableDebug = options.enableDebug ?? process.env.ENABLE_DEBUG === 'true';
   const allowedOrigins = Array.from(new Set([clientOrigin, 'http://localhost:5173']));
 
-  const leaderboard = options.leaderboard ?? new InMemoryLeaderboard();
+  const redisUrl = options.redisUrl ?? process.env.REDIS_URL?.trim();
+  const leaderboard: LeaderboardStore =
+    options.leaderboard ?? (redisUrl ? new RedisLeaderboard(redisUrl) : new InMemoryLeaderboard());
+  if (redisUrl && !options.leaderboard) {
+    console.log('[wizarden] leaderboard: persistent (Redis)');
+  }
 
   const app = express();
   app.get('/health', (_req, res) => {
@@ -89,6 +96,7 @@ if (isMain) {
   const server = createWizardenServer({
     clientOrigin: config.clientOrigin,
     enableDebug: config.enableDebug,
+    redisUrl: config.redisUrl,
   });
   void server.listen(config.port).then((boundPort) => {
     console.log(`[wizarden] server listening on :${boundPort} (debug=${config.enableDebug})`);

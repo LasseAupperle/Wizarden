@@ -13,6 +13,16 @@ export interface LeaderboardStore {
 export class InMemoryLeaderboard implements LeaderboardStore {
   private byKey = new Map<string, LeaderboardEntry>();
 
+  /** Replace all entries (used to hydrate from a persistent backend on startup). */
+  load(entries: readonly LeaderboardEntry[]): void {
+    this.byKey.clear();
+    for (const e of entries) {
+      if (e && typeof e.name === 'string' && e.name.trim()) {
+        this.byKey.set(e.name.toLowerCase(), { ...e });
+      }
+    }
+  }
+
   recordWin(names: readonly string[], points: number): void {
     const now = Date.now();
     for (const raw of names) {

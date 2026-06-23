@@ -17,9 +17,9 @@ import {
 import { useGameStore } from '../store/gameStore.js';
 import { storage } from '../lib/storage.js';
 import { friendlyError, isSessionFatal } from '../lib/errors.js';
+import { SERVER_URL, DEBUG_ENABLED } from '../lib/env.js';
 
-const SERVER_URL = import.meta.env.VITE_SERVER_URL ?? 'http://localhost:3001';
-export const DEBUG_ENABLED = import.meta.env.VITE_ENABLE_DEBUG === 'true';
+export { DEBUG_ENABLED };
 
 let socket: Socket | null = null;
 let wakingTimer: ReturnType<typeof setTimeout> | null = null;

@@ -7,6 +7,7 @@ import { RoomManager } from './rooms/roomManager.js';
 import { SessionStore } from './rooms/sessions.js';
 import { InMemoryLeaderboard, type LeaderboardStore } from './rooms/leaderboard.js';
 import { registerSocketHandlers } from './net/handlers.js';
+import { loadConfig } from './config.js';
 
 export interface WizardenServerOptions {
   clientOrigin?: string;
@@ -84,9 +85,12 @@ export function createWizardenServer(options: WizardenServerOptions = {}): Wizar
 // Boot only when run directly (not when imported by tests).
 const isMain = process.argv[1] ? import.meta.url === pathToFileURL(process.argv[1]).href : false;
 if (isMain) {
-  const port = Number(process.env.PORT ?? 3001);
-  const server = createWizardenServer();
-  void server.listen(port).then((boundPort) => {
-    console.log(`[wizarden] server listening on :${boundPort}`);
+  const config = loadConfig();
+  const server = createWizardenServer({
+    clientOrigin: config.clientOrigin,
+    enableDebug: config.enableDebug,
+  });
+  void server.listen(config.port).then((boundPort) => {
+    console.log(`[wizarden] server listening on :${boundPort} (debug=${config.enableDebug})`);
   });
 }

@@ -1,6 +1,8 @@
 // Socket event handlers: translate client intents into room/engine actions with
 // server-side validation, then broadcast redacted state. The client holds no
-// authority — every move is validated here.
+// authority — every move is validated here. Every handler is wrapped so a thrown
+// error becomes a clean error event (never a crash), and inbound payloads are
+// shape-validated + rate-limited at the boundary (§15/§16).
 
 import type { Server, Socket } from 'socket.io';
 import {
@@ -18,6 +20,8 @@ import type { SessionStore } from '../rooms/sessions.js';
 import type { LeaderboardStore } from '../rooms/leaderboard.js';
 import type { ResolvePayload } from '../engine/game.js';
 import { broadcastRoom, projectFor } from './broadcast.js';
+import { BadPayload, cleanName, parse } from './validate.js';
+import { SocketLimiter } from './rateLimit.js';
 
 const LEADERBOARD_TOP = 5;
 
@@ -40,16 +44,35 @@ function emitError(socket: Sock, code: ErrorCode, message: string): void {
   socket.emit(ServerEvents.error, { code, message });
 }
 
-function safeName(name: unknown): string {
-  const n = typeof name === 'string' ? name.trim().slice(0, 24) : '';
-  return n.length > 0 ? n : 'Player';
-}
-
 export function registerSocketHandlers(io: Io, socket: Sock, deps: HandlerDeps): void {
   const { roomManager, sessions } = deps;
+  const limiter = new SocketLimiter();
 
   const bindRoom = (room: Room) => {
     room.onChange = () => broadcastRoom(io, room);
+  };
+
+  // Loosely-typed event registration; payloads are validated by `parse.*` inside.
+  const rawOn = socket.on.bind(socket) as unknown as (
+    event: string,
+    listener: (payload: unknown) => void,
+  ) => void;
+
+  /** Wrap a handler: malformed payload -> MALFORMED_PAYLOAD, anything else ->
+   *  SERVER_ERROR (logged, no internals leaked). A failed action is a no-op. */
+  const on = (event: string, handler: (payload: unknown) => void): void => {
+    rawOn(event, (payload: unknown) => {
+      try {
+        handler(payload);
+      } catch (e) {
+        if (e instanceof BadPayload) {
+          emitError(socket, ErrorCodes.malformedPayload, 'malformed request');
+        } else {
+          console.error('[wizarden] handler error:', e);
+          emitError(socket, ErrorCodes.serverError, 'something went wrong');
+        }
+      }
+    });
   };
 
   const withRoom = (fn: (room: Room, seat: number) => void): void => {
@@ -62,10 +85,14 @@ export function registerSocketHandlers(io: Io, socket: Sock, deps: HandlerDeps):
 
   // ---- lobby / membership ----
 
-  socket.on(ClientEvents.roomCreate, ({ name }) => {
+  on(ClientEvents.roomCreate, (raw) => {
+    if (!limiter.create.take()) return emitError(socket, ErrorCodes.rateLimited, 'slow down');
+    const { name } = parse.roomCreate(raw);
+    const clean = cleanName(name);
+    if (!clean) return emitError(socket, ErrorCodes.nameInvalid, 'please enter a name');
     const room = roomManager.createRoom();
     bindRoom(room);
-    const player = room.addPlayer(safeName(name), { socketId: socket.id });
+    const player = room.addPlayer(clean, { socketId: socket.id });
     const session = sessions.create(room.code, player.seat);
     player.token = session.token;
     socket.data = { roomCode: room.code, seat: player.seat } satisfies SocketCtx;
@@ -77,13 +104,16 @@ export function registerSocketHandlers(io: Io, socket: Sock, deps: HandlerDeps):
     });
   });
 
-  socket.on(ClientEvents.roomJoin, ({ name, code }) => {
-    const room = roomManager.get(code ?? '');
+  on(ClientEvents.roomJoin, (raw) => {
+    const { name, code } = parse.roomJoin(raw);
+    const clean = cleanName(name);
+    if (!clean) return emitError(socket, ErrorCodes.nameInvalid, 'please enter a name');
+    const room = roomManager.get(code);
     if (!room) return emitError(socket, ErrorCodes.roomNotFound, 'room not found');
     if (room.started) return emitError(socket, ErrorCodes.gameInProgress, 'game already started');
     if (room.players.length >= MAX_PLAYERS) return emitError(socket, ErrorCodes.roomFull, 'room is full');
     bindRoom(room);
-    const player = room.addPlayer(safeName(name), { socketId: socket.id });
+    const player = room.addPlayer(clean, { socketId: socket.id });
     const session = sessions.create(room.code, player.seat);
     player.token = session.token;
     socket.data = { roomCode: room.code, seat: player.seat } satisfies SocketCtx;
@@ -97,12 +127,25 @@ export function registerSocketHandlers(io: Io, socket: Sock, deps: HandlerDeps):
     broadcastRoom(io, room);
   });
 
-  socket.on(ClientEvents.roomRejoin, ({ token }) => {
-    const session = sessions.get(token ?? '');
+  on(ClientEvents.roomRejoin, (raw) => {
+    const { token } = parse.roomRejoin(raw);
+    const session = sessions.get(token);
     if (!session) return emitError(socket, ErrorCodes.sessionGone, 'session expired');
     const room = roomManager.get(session.roomCode);
     const player = room?.playerBySeat(session.seat);
     if (!room || !player) return emitError(socket, ErrorCodes.sessionGone, 'room gone');
+
+    // Multi-tab last-connection-wins (§17): evict any older live socket on this seat.
+    const old = player.socketId;
+    if (old && old !== socket.id) {
+      const oldSock = io.sockets.sockets.get(old);
+      if (oldSock) {
+        oldSock.data = {} satisfies SocketCtx; // its disconnect must not touch the seat
+        emitError(oldSock, ErrorCodes.sessionReplaced, 'this session was opened in another tab');
+        oldSock.disconnect(true);
+      }
+    }
+
     bindRoom(room);
     room.markReconnected(player.seat, socket.id);
     socket.data = { roomCode: room.code, seat: player.seat } satisfies SocketCtx;
@@ -112,15 +155,17 @@ export function registerSocketHandlers(io: Io, socket: Sock, deps: HandlerDeps):
     broadcastRoom(io, room);
   });
 
-  socket.on(ClientEvents.lobbyConfigureSpecials, ({ specials }) => {
+  on(ClientEvents.lobbyConfigureSpecials, (raw) => {
+    const { specials } = parse.specials(raw);
     withRoom((room, seat) => {
-      const r = room.configureSpecials(seat, specials ?? []);
+      const r = room.configureSpecials(seat, specials);
       if (!r.ok) return emitError(socket, r.error.code, r.error.message);
       broadcastRoom(io, room);
     });
   });
 
-  socket.on(ClientEvents.lobbyConfigureMode, ({ mode }) => {
+  on(ClientEvents.lobbyConfigureMode, (raw) => {
+    const { mode } = parse.mode(raw);
     withRoom((room, seat) => {
       const r = room.configureMode(seat, mode);
       if (!r.ok) return emitError(socket, r.error.code, r.error.message);
@@ -128,11 +173,11 @@ export function registerSocketHandlers(io: Io, socket: Sock, deps: HandlerDeps):
     });
   });
 
-  socket.on(ClientEvents.leaderboardGet, () => {
+  on(ClientEvents.leaderboardGet, () => {
     socket.emit(ServerEvents.leaderboardData, { entries: deps.leaderboard.top(LEADERBOARD_TOP) });
   });
 
-  socket.on(ClientEvents.lobbyAddBot, () => {
+  on(ClientEvents.lobbyAddBot, () => {
     withRoom((room) => {
       const r = room.addBot();
       if (!r.ok) return emitError(socket, r.error.code, r.error.message);
@@ -140,9 +185,9 @@ export function registerSocketHandlers(io: Io, socket: Sock, deps: HandlerDeps):
     });
   });
 
-  socket.on(ClientEvents.lobbyRemoveBot, ({ seat }) => {
+  on(ClientEvents.lobbyRemoveBot, (raw) => {
+    const { seat } = parse.seat(raw);
     withRoom((room) => {
-      if (seat === undefined) return emitError(socket, ErrorCodes.badRequest, 'seat required');
       const r = room.removeBot(seat);
       if (!r.ok) return emitError(socket, r.error.code, r.error.message);
       broadcastRoom(io, room);
@@ -151,7 +196,7 @@ export function registerSocketHandlers(io: Io, socket: Sock, deps: HandlerDeps):
 
   // ---- game ----
 
-  socket.on(ClientEvents.gameStart, () => {
+  on(ClientEvents.gameStart, () => {
     withRoom((room, seat) => {
       const r = room.start(seat);
       if (!r.ok) return emitError(socket, r.error.code, r.error.message);
@@ -159,7 +204,9 @@ export function registerSocketHandlers(io: Io, socket: Sock, deps: HandlerDeps):
     });
   });
 
-  socket.on(ClientEvents.gameBid, ({ bid }) => {
+  on(ClientEvents.gameBid, (raw) => {
+    if (!limiter.action.take()) return emitError(socket, ErrorCodes.rateLimited, 'slow down');
+    const { bid } = parse.bid(raw);
     withRoom((room, seat) => {
       const r = room.bid(seat, bid);
       if (!r.ok) return emitError(socket, r.error.code, r.error.message);
@@ -167,15 +214,19 @@ export function registerSocketHandlers(io: Io, socket: Sock, deps: HandlerDeps):
     });
   });
 
-  socket.on(ClientEvents.gamePlay, ({ cardId, decision }) => {
+  on(ClientEvents.gamePlay, (raw) => {
+    if (!limiter.action.take()) return emitError(socket, ErrorCodes.rateLimited, 'slow down');
+    const { cardId, decision } = parse.play(raw);
     withRoom((room, seat) => {
-      const r = room.play(seat, cardId, decision ?? { type: 'none' });
+      const r = room.play(seat, cardId, (decision ?? { type: 'none' }) as never);
       if (!r.ok) return emitError(socket, r.error.code, r.error.message);
       broadcastRoom(io, room);
     });
   });
 
-  socket.on(ClientEvents.gameResolve, (payload) => {
+  on(ClientEvents.gameResolve, (raw) => {
+    if (!limiter.action.take()) return emitError(socket, ErrorCodes.rateLimited, 'slow down');
+    const payload = parse.resolve(raw);
     withRoom((room, seat) => {
       const r = room.resolve(seat, payload as ResolvePayload);
       if (!r.ok) return emitError(socket, r.error.code, r.error.message);
@@ -183,7 +234,7 @@ export function registerSocketHandlers(io: Io, socket: Sock, deps: HandlerDeps):
     });
   });
 
-  socket.on(ClientEvents.gamePlayAgain, () => {
+  on(ClientEvents.gamePlayAgain, () => {
     withRoom((room, seat) => {
       const r = room.playAgain(seat);
       if (!r.ok) return emitError(socket, r.error.code, r.error.message);
@@ -205,7 +256,7 @@ export function registerSocketHandlers(io: Io, socket: Sock, deps: HandlerDeps):
     broadcastRoom(io, room);
   };
 
-  socket.on(ClientEvents.roomLeave, () => {
+  on(ClientEvents.roomLeave, () => {
     withRoom((room, seat) => {
       departSeat(room, seat);
       socket.data = {} satisfies SocketCtx;
@@ -213,9 +264,9 @@ export function registerSocketHandlers(io: Io, socket: Sock, deps: HandlerDeps):
     });
   });
 
-  socket.on(ClientEvents.hostRemovePlayer, ({ seat }) => {
+  on(ClientEvents.hostRemovePlayer, (raw) => {
+    const { seat } = parse.seat(raw);
     withRoom((room, hostSeat) => {
-      if (seat === undefined) return emitError(socket, ErrorCodes.badRequest, 'seat required');
       if (room.playerBySeat(hostSeat)?.isHost !== true) return emitError(socket, ErrorCodes.notHost, 'host only');
       departSeat(room, seat);
     });
@@ -229,6 +280,9 @@ export function registerSocketHandlers(io: Io, socket: Sock, deps: HandlerDeps):
     const room = roomManager.get(ctx.roomCode);
     const player = room?.playerBySeat(ctx.seat);
     if (!room || !player) return;
+    // If the seat was taken over by a newer socket (multi-tab), this stale
+    // disconnect must not flip the seat to disconnected.
+    if (player.socketId && player.socketId !== socket.id) return;
     room.markDisconnected(player.seat);
     io.to(room.code).emit(ServerEvents.peerDisconnected, { seat: player.seat, name: player.name });
     if (!room.started) roomManager.reapEmpty();

@@ -64,6 +64,11 @@ export const ErrorCodes = {
   invalidConfig: 'INVALID_CONFIG', // e.g. Dragon/Fairy not paired, bad player count
   debugDisabled: 'DEBUG_DISABLED',
   badRequest: 'BAD_REQUEST',
+  nameInvalid: 'NAME_INVALID', // blank-after-trim / unusable display name
+  malformedPayload: 'MALFORMED_PAYLOAD', // wrong shape/types at the server boundary
+  rateLimited: 'RATE_LIMITED', // too many actions too fast
+  serverError: 'SERVER_ERROR', // unexpected exception (no internals leaked)
+  sessionReplaced: 'SESSION_REPLACED', // same token opened in a newer tab (last wins)
 } as const;
 
 export type ErrorCode = (typeof ErrorCodes)[keyof typeof ErrorCodes];

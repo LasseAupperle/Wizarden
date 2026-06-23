@@ -24,7 +24,10 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile
 
-      - name: Typecheck + lint
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Lint (ESLint)
         run: pnpm lint
 
       - name: Build

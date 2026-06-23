@@ -16,6 +16,11 @@ const MESSAGES: Record<ErrorCode, string> = {
   [ErrorCodes.invalidConfig]: 'Check the game settings and try again.',
   [ErrorCodes.debugDisabled]: 'That option is only available in debug mode.',
   [ErrorCodes.badRequest]: 'Something went wrong with that request.',
+  [ErrorCodes.nameInvalid]: 'Please enter a name.',
+  [ErrorCodes.malformedPayload]: 'Something went wrong with that request.',
+  [ErrorCodes.rateLimited]: 'Slow down a moment, then try again.',
+  [ErrorCodes.serverError]: 'Something went wrong on our side. Try again.',
+  [ErrorCodes.sessionReplaced]: 'This game was opened in another tab.',
 };
 
 export function friendlyError(code: string, fallback = 'Something went wrong.'): string {
@@ -24,5 +29,5 @@ export function friendlyError(code: string, fallback = 'Something went wrong.'):
 
 /** Session-fatal errors clear the token and route the client back to Landing. */
 export function isSessionFatal(code: string): boolean {
-  return code === ErrorCodes.sessionGone;
+  return code === ErrorCodes.sessionGone || code === ErrorCodes.sessionReplaced;
 }

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { io as ioClient, type Socket } from 'socket.io-client';
-import type { Card, ClientGameState } from '@wizarden/shared';
+import type { ClientGameState } from '@wizarden/shared';
 import { createWizardenServer, type WizardenServer } from '../index.js';
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));

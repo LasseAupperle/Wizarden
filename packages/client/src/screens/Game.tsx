@@ -142,8 +142,8 @@ export function Game({ game }: { game: ClientGameState }) {
         ))}
       </div>
 
-      {/* trick area */}
-      <div className="flex flex-1 flex-col items-center justify-center gap-3 p-4">
+      {/* trick area — a faint violet "table" glow so the centre reads as a surface */}
+      <div className="flex flex-1 flex-col items-center justify-center gap-3 p-4 bg-[radial-gradient(60%_45%_at_50%_42%,rgba(124,92,255,0.10),transparent_70%)]">
         {game.phase === 'roundEnd' && game.lastRoundResult ? (
           <div className="rounded-ui border border-line bg-elevated p-4 text-center">
             <div className="mb-1 font-display text-ink">Round {game.roundNumber}</div>

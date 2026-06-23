@@ -58,6 +58,14 @@ export function getSocket(): Socket {
   socket.on('disconnect', () => store().setConnection('reconnecting'));
   socket.io.on('reconnect_attempt', () => store().setConnection('reconnecting'));
 
+  // A backgrounded mobile tab can have its socket silently dropped; when the tab
+  // returns to the foreground, force a reconnect (which re-emits room:rejoin).
+  if (typeof document !== 'undefined') {
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible' && socket && !socket.connected) socket.connect();
+    });
+  }
+
   const onRoom = (p: RoomCreatedPayload) => {
     storage.setSession({ token: p.token, roomCode: p.code });
     store().setGame(p.state);

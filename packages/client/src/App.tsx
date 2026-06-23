@@ -25,14 +25,16 @@ export default function App() {
   const screen = selectScreen(game);
 
   return (
-    <div className="min-h-dvh bg-bg text-ink">
+    <div className="min-h-dvh text-ink">
       <RotateHint />
-      <ConnectionBanner />
-      <ErrorToasts />
-      {screen === 'landing' && <Landing />}
-      {screen === 'lobby' && game && <Lobby game={game} />}
-      {screen === 'game' && game && <Game game={game} />}
-      {screen === 'gameover' && game && <GameOver game={game} />}
+      <div className="app-frame flex flex-col">
+        <ConnectionBanner />
+        <ErrorToasts />
+        {screen === 'landing' && <Landing />}
+        {screen === 'lobby' && game && <Lobby game={game} />}
+        {screen === 'game' && game && <Game game={game} />}
+        {screen === 'gameover' && game && <GameOver game={game} />}
+      </div>
     </div>
   );
 }

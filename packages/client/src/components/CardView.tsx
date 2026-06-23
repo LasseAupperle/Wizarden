@@ -27,20 +27,23 @@ interface Props {
 /** A single playing card. Suits carry a glyph + letter so colour isn't the only
  *  cue (§14 / §19 colour-blind support). Special cards are visibly richer. */
 export function CardView({ card, onClick, disabled, selected, size = 'md' }: Props) {
-  const dims = size === 'sm' ? 'w-10 h-14 text-base' : 'w-16 h-[5.6rem] text-2xl';
+  const dims = size === 'sm' ? 'w-11 h-[3.85rem] text-lg' : 'w-[4.3rem] h-24 text-3xl';
   const base = cn(
     'relative rounded-card border shadow-card flex items-center justify-center font-ui font-extrabold select-none shrink-0 transition',
     dims,
     onClick && !disabled && 'hover:-translate-y-1 active:scale-95 cursor-pointer',
-    disabled && 'opacity-40 grayscale pointer-events-none',
+    // Dim disabled cards but KEEP their colour so the suit is always readable.
+    disabled && 'opacity-55 saturate-75 pointer-events-none',
     selected && '-translate-y-2 ring-2 ring-accent',
   );
 
   let content;
   if (card.kind === 'number') {
     const m = SUIT_META[card.suit];
+    // Yellow needs dark ink for contrast; the other suits read well on white.
+    const ink = card.suit === 'yellow' ? 'text-black/85' : 'text-white';
     content = (
-      <div className={cn(base, SUIT_BG[card.suit], 'border-black/20 text-white')}>
+      <div className={cn(base, SUIT_BG[card.suit], 'border-black/25 shadow-card', ink)}>
         <span className="absolute left-1 top-0.5 text-[10px] leading-none" aria-hidden>
           {m.letter}
           {m.glyph}

@@ -11,13 +11,35 @@ body,
 
 body {
   margin: 0;
-  background: var(--bg);
+  /* Subtle mystical glow so wide desktop screens aren't a flat black void
+     beside the centred phone-width app frame. */
+  background:
+    radial-gradient(1100px 560px at 50% -8%, rgba(124, 92, 255, 0.16), transparent 60%),
+    radial-gradient(900px 600px at 100% 110%, rgba(217, 164, 65, 0.06), transparent 55%),
+    var(--bg);
+  background-attachment: fixed;
   color: var(--text);
   font-family: var(--font-ui);
   -webkit-tap-highlight-color: transparent;
   /* honour device safe areas (notches / home indicator) */
   padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
     env(safe-area-inset-left);
+}
+
+/* The centred app frame: full-bleed on phones, a delineated column on desktop. */
+.app-frame {
+  position: relative;
+  margin-inline: auto;
+  width: 100%;
+  max-width: 30rem; /* ~480px phone width */
+  min-height: 100dvh;
+  background: var(--bg);
+}
+@media (min-width: 32rem) {
+  .app-frame {
+    border-inline: 1px solid var(--border);
+    box-shadow: 0 0 60px -10px rgba(0, 0, 0, 0.6);
+  }
 }
 
 h1,

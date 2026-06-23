@@ -1,5 +1,6 @@
 import type { SpecialType } from '@wizarden/shared';
 import { ALL_SPECIALS, SPECIAL_META } from '../lib/specials.js';
+import { SpecialIcon } from './CardArt.js';
 import { cn } from '../lib/cn.js';
 
 interface Props {
@@ -28,8 +29,14 @@ export function SpecialCardPicker({ selected, onToggle, disabled }: Props) {
               on ? 'border-accent bg-accent/15' : 'border-line bg-elevated hover:border-accent/50',
             )}
           >
-            <span className="text-xl" aria-hidden>
-              {m.emblem}
+            <span
+              className={cn(
+                'flex h-8 w-8 shrink-0 items-center justify-center rounded-ui border',
+                on ? 'border-accent/40 bg-bg/40' : 'border-line bg-bg/40',
+              )}
+              aria-hidden
+            >
+              <SpecialIcon special={type} size={18} />
             </span>
             <span className="min-w-0">
               <span className="block truncate text-sm font-semibold text-ink">{m.name}</span>

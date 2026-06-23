@@ -1,4 +1,5 @@
 import { ALL_SPECIALS, SPECIAL_META } from '../lib/specials.js';
+import { SpecialIcon } from './CardArt.js';
 
 /** Quick reference (§13). Original summary — flow, scoring, and the 9 specials. */
 export function HowToPlay() {
@@ -33,12 +34,14 @@ export function HowToPlay() {
           {ALL_SPECIALS.map((type) => {
             const m = SPECIAL_META[type];
             return (
-              <li key={type} className="rounded-ui border border-line bg-elevated p-2.5">
-                <span className="mr-1.5" aria-hidden>
-                  {m.emblem}
+              <li key={type} className="flex gap-2 rounded-ui border border-line bg-elevated p-2.5">
+                <span className="mt-0.5 shrink-0" aria-hidden>
+                  <SpecialIcon special={type} size={18} />
                 </span>
-                <span className="font-semibold text-ink">{m.name}</span>
-                <span className="ml-1">— {m.rule}</span>
+                <span>
+                  <span className="font-semibold text-ink">{m.name}</span>
+                  <span className="ml-1">— {m.rule}</span>
+                </span>
               </li>
             );
           })}

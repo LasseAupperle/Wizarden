@@ -12,3 +12,9 @@ export function applyLanguage(language: Locale): void {
   if (typeof document === 'undefined') return;
   document.documentElement.lang = language;
 }
+
+export function applyAnimations(on: boolean): void {
+  if (typeof document === 'undefined') return;
+  if (on) delete document.documentElement.dataset.animations;
+  else document.documentElement.dataset.animations = 'off';
+}

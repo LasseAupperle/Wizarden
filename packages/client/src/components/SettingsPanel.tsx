@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { LOCALES, type Locale, type ThemeMode } from '@wizarden/shared';
 import { useGameStore } from '../store/gameStore.js';
 import { useT } from '../lib/i18n.js';
-import { applyLanguage, applyTheme } from '../lib/theme.js';
+import { applyAnimations, applyLanguage, applyTheme } from '../lib/theme.js';
 import { cn } from '../lib/cn.js';
 
 function Toggle({ on, onChange, label }: { on: boolean; onChange: (v: boolean) => void; label: string }) {
@@ -78,7 +78,14 @@ export function SettingsPanel() {
         <Toggle on={settings.sound} onChange={(v) => setSetting('sound', v)} label={t('sound')} />
       </Row>
       <Row label={t('animations')}>
-        <Toggle on={settings.animations} onChange={(v) => setSetting('animations', v)} label={t('animations')} />
+        <Toggle
+          on={settings.animations}
+          onChange={(v) => {
+            setSetting('animations', v);
+            applyAnimations(v);
+          }}
+          label={t('animations')}
+        />
       </Row>
       <Row label={t('theme')}>
         <Segmented<ThemeMode>

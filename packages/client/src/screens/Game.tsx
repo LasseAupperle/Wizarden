@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { SUITS, type Card, type ClientGameState, type PendingDecision, type Suit } from '@wizarden/shared';
 import { TopBar } from '../components/TopBar.js';
 import { Button } from '../components/ui/Button.js';
@@ -26,6 +26,20 @@ function isPlayable(card: Card, hand: Card[], trick: ClientGameState['currentTri
   return !hand.some((c) => c.kind === 'number' && c.suit === suit);
 }
 
+const KIND_ORDER: Record<Card['kind'], number> = { jester: 0, number: 1, special: 2, wizard: 3 };
+const SUIT_ORDER: Record<Suit, number> = { red: 0, blue: 1, green: 2, yellow: 3 };
+
+/** Stable, readable hand order: by kind, then suit, then value. */
+function sortHand(hand: Card[]): Card[] {
+  return [...hand].sort((a, b) => {
+    if (a.kind !== b.kind) return KIND_ORDER[a.kind] - KIND_ORDER[b.kind];
+    if (a.kind === 'number' && b.kind === 'number') {
+      return SUIT_ORDER[a.suit] - SUIT_ORDER[b.suit] || a.value - b.value;
+    }
+    return a.id.localeCompare(b.id);
+  });
+}
+
 function SuitRow({ onPick, extra }: { onPick: (s: Suit) => void; extra?: ReactNode }) {
   return (
     <div className="flex flex-wrap gap-2">
@@ -49,6 +63,24 @@ export function Game({ game }: { game: ClientGameState }) {
   const yourTurnToPlay = game.phase === 'trick' && game.currentTurnSeat === game.yourSeat;
   const yourTurnToBid = game.phase === 'bidding' && game.currentTurnSeat === game.yourSeat;
   const decision = game.pendingDecision;
+
+  // place-card sound on every card that lands in the trick (yours and others')
+  const trickLen = game.currentTrick.length;
+  const prevTrickLen = useRef(trickLen);
+  useEffect(() => {
+    if (trickLen > prevTrickLen.current) playPlaceCard();
+    prevTrickLen.current = trickLen;
+  }, [trickLen]);
+
+  // screen-reader announcements (§19)
+  const announce = useMemo(() => {
+    if (game.paused) return `Paused, waiting for ${game.pausedForName ?? 'a player'}`;
+    if (decision) return `Your decision: ${decision.kind}`;
+    if (yourTurnToBid) return 'Your turn to bid';
+    if (yourTurnToPlay) return 'Your turn to play';
+    if (game.phase === 'roundEnd') return `Round ${game.roundNumber} scored`;
+    return '';
+  }, [game.paused, game.pausedForName, decision, yourTurnToBid, yourTurnToPlay, game.phase, game.roundNumber]);
 
   const play = (card: Card) => {
     if (card.kind === 'special' && card.special === 'shapeshifter') return setAnnounceCard(card);
@@ -81,6 +113,10 @@ export function Game({ game }: { game: ClientGameState }) {
         }
       />
 
+      <div className="sr-only" role="status" aria-live="polite">
+        {announce}
+      </div>
+
       {/* opponents */}
       <div className="flex flex-wrap justify-center gap-2 p-3">
         {opponents.map((p) => (
@@ -88,7 +124,9 @@ export function Game({ game }: { game: ClientGameState }) {
             key={p.seat}
             className={cn(
               'rounded-ui border px-3 py-1.5 text-center text-xs',
-              game.currentTurnSeat === p.seat ? 'border-accent bg-accent/15' : 'border-line bg-elevated',
+              game.currentTurnSeat === p.seat
+                ? 'border-accent bg-accent/15 animate-turn'
+                : 'border-line bg-elevated',
             )}
           >
             <div className="flex items-center gap-1 font-semibold text-ink">
@@ -121,7 +159,7 @@ export function Game({ game }: { game: ClientGameState }) {
         ) : (
           <div className="flex min-h-[6rem] flex-wrap items-center justify-center gap-2">
             {game.currentTrick.map((p) => (
-              <div key={p.card.id} className="flex flex-col items-center">
+              <div key={p.card.id} className="animate-card-in flex flex-col items-center">
                 <CardView card={p.card} />
                 <span className="mt-1 text-[10px] text-muted">
                   {game.players.find((pl) => pl.seat === p.seat)?.name}
@@ -142,7 +180,7 @@ export function Game({ game }: { game: ClientGameState }) {
           {yourTurnToPlay && <Badge tone="positive">your turn</Badge>}
         </div>
         <div className="flex flex-wrap justify-center gap-1.5">
-          {game.yourHand.map((card) => (
+          {sortHand(game.yourHand).map((card) => (
             <CardView
               key={card.id}
               card={card}

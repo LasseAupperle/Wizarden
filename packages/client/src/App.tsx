@@ -4,6 +4,7 @@ import { getSocket } from './net/socket.js';
 import { applyLanguage, applyTheme } from './lib/theme.js';
 import { ConnectionBanner } from './components/ConnectionBanner.js';
 import { ErrorToasts } from './components/ErrorToasts.js';
+import { RotateHint } from './components/RotateHint.js';
 import { Landing } from './screens/Landing.js';
 import { Lobby } from './screens/Lobby.js';
 import { Game } from './screens/Game.js';
@@ -25,6 +26,7 @@ export default function App() {
 
   return (
     <div className="min-h-dvh bg-bg text-ink">
+      <RotateHint />
       <ConnectionBanner />
       <ErrorToasts />
       {screen === 'landing' && <Landing />}

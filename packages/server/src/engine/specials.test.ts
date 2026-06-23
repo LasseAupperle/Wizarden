@@ -66,6 +66,7 @@ function trickState(o: TrickOpts): GameState {
     players,
     initialPlayerCount: players.length,
     totalRounds: totalRoundsForCount(players.length),
+    gameMode: 'full',
     selectedSpecials: o.specials ?? [],
     round: {
       roundNumber: cards,
@@ -97,6 +98,7 @@ function postDeal(o: { hands: Card[][]; trumpCard: Card | null; startMarkerSeat?
     players,
     initialPlayerCount: players.length,
     totalRounds: totalRoundsForCount(players.length),
+    gameMode: 'full',
     selectedSpecials: [],
     round: {
       roundNumber: cards,

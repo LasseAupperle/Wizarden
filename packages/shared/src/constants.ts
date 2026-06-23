@@ -31,6 +31,18 @@ export function roundsForPlayerCount(players: number): number {
   return rounds;
 }
 
+// Game modes (§23.3). Full = standard round count; Half = ceil(full / 2).
+export type GameMode = 'full' | 'half';
+
+export function roundsForMode(fullRounds: number, mode: GameMode): number {
+  return mode === 'half' ? Math.ceil(fullRounds / 2) : fullRounds;
+}
+
+// Supported UI locales (§23.2). English is the default.
+export type Locale = 'en' | 'nl' | 'de';
+export const LOCALES: readonly Locale[] = ['en', 'nl', 'de'] as const;
+export type ThemeMode = 'light' | 'dark';
+
 // Juggler ranks at 7.5, Cloud at 9.75 (within their announced suit).
 export const JUGGLER_RANK = 7.5;
 export const CLOUD_RANK = 9.75;

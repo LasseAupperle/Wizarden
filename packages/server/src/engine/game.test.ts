@@ -44,6 +44,7 @@ function biddingState(hands: Card[][], trumpSuit: Suit | null, startMarkerSeat =
     players,
     initialPlayerCount: players.length,
     totalRounds: totalRoundsForCount(players.length),
+    gameMode: 'full',
     selectedSpecials: [],
     round: {
       roundNumber: cards,

@@ -1,13 +1,36 @@
-import { BASE_DECK_SIZE } from '@wizarden/shared';
+import { useEffect } from 'react';
+import { selectScreen, useGameStore } from './store/gameStore.js';
+import { getSocket } from './net/socket.js';
+import { applyLanguage, applyTheme } from './lib/theme.js';
+import { ConnectionBanner } from './components/ConnectionBanner.js';
+import { ErrorToasts } from './components/ErrorToasts.js';
+import { Landing } from './screens/Landing.js';
+import { Lobby } from './screens/Lobby.js';
+import { Game } from './screens/Game.js';
+import { GameOver } from './screens/GameOver.js';
 
 export default function App() {
+  const game = useGameStore((s) => s.game);
+  const settings = useGameStore((s) => s.settings);
+
+  // Connect once; apply persisted theme/language.
+  useEffect(() => {
+    applyTheme(settings.theme);
+    applyLanguage(settings.language);
+    getSocket();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const screen = selectScreen(game);
+
   return (
-    <main className="min-h-dvh flex flex-col items-center justify-center bg-[#1a1033] text-white p-6 text-center select-none">
-      <h1 className="text-5xl font-black tracking-tight">Wizarden</h1>
-      <p className="mt-3 text-white/70">Wizard — 30-Year Edition</p>
-      <p className="mt-8 text-xs text-white/40">
-        scaffold ok · base deck {BASE_DECK_SIZE} cards
-      </p>
-    </main>
+    <div className="min-h-dvh bg-bg text-ink">
+      <ConnectionBanner />
+      <ErrorToasts />
+      {screen === 'landing' && <Landing />}
+      {screen === 'lobby' && game && <Lobby game={game} />}
+      {screen === 'game' && game && <Game game={game} />}
+      {screen === 'gameover' && game && <GameOver game={game} />}
+    </div>
   );
 }

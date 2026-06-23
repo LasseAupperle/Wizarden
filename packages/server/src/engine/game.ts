@@ -13,9 +13,11 @@ import {
   MIN_PLAYERS_DEBUG,
   SUITS,
   isSpecial,
+  roundsForMode,
   roundsForPlayerCount,
   type Card,
   type ErrorCode,
+  type GameMode,
   type PlayDecision,
   type PlayerPublic,
   type SpecialType,
@@ -62,6 +64,7 @@ export interface CreateGameParams {
   roomCode: string;
   players: NewGamePlayer[];
   selectedSpecials?: SpecialType[];
+  gameMode?: GameMode;
   seed: number;
 }
 
@@ -95,12 +98,14 @@ export function createGame(params: CreateGameParams): GameState {
     totalScore: 0,
   }));
 
+  const mode: GameMode = params.gameMode ?? 'full';
   const state: GameState = {
     roomCode: params.roomCode,
     phase: 'dealing',
     players: enginePlayers,
     initialPlayerCount: count,
-    totalRounds: totalRoundsForCount(count),
+    totalRounds: roundsForMode(totalRoundsForCount(count), mode),
+    gameMode: mode,
     selectedSpecials: validateSpecials(params.selectedSpecials ?? []),
     round: null,
     currentTurnSeat: null,

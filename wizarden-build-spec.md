@@ -596,3 +596,138 @@ Each phase lists its **goal**, **deliverables**, and a **runnable acceptance gat
 **Constraints.** Original assets only. No AMIGO artwork. Only open-licensed fonts and icons. Everything must stay smooth on a mid-range phone.
 
 **Acceptance gate** (add to **Phase 8**). A quick visual review on a phone-sized viewport confirms: all colours, spacing, radii, and fonts come from the shared tokens; number cards are readable at arm's length; suits are distinguishable without relying on colour; special cards are clearly distinct from number cards and from each other; the slide-to-trick animation is smooth and `prefers-reduced-motion` is respected; safe areas are honoured; and every menu and overlay uses the same styled primitives as the rest of the app.
+
+---
+
+## 15. Error handling & user-facing error states
+
+**Error-code contract.** Define a single `ErrorCode` enum in `@wizarden/shared` so client and server agree, and the client can map each to a friendly message (never show raw codes or stack traces to players). At minimum: `ROOM_NOT_FOUND`, `ROOM_IN_PROGRESS` (join after start), `ROOM_FULL`, `NAME_INVALID`, `NAME_TAKEN` (if names must be unique), `NOT_HOST`, `NOT_YOUR_TURN`, `ILLEGAL_MOVE`, `INVALID_DECISION` (wrong decision kind/owner/payload), `SESSION_INVALID` (rejoin with dead/removed token), `MALFORMED_PAYLOAD`, `RATE_LIMITED`, `SERVER_ERROR`. Every `error` event (§6.4) carries one of these plus a human-readable message.
+
+**Server side.** Wrap every handler so a thrown error becomes a clean `error` event to the offending socket, never a crash. Validate the payload shape and the actor (right seat, right phase, owns the decision) before touching the engine. Engine-rejected actions return a typed result, not an exception, mapped to the matching code. An unexpected exception logs server-side and returns `SERVER_ERROR` without leaking internals; the game state must remain consistent (a failed action is a no-op, never a partial mutation).
+
+**Client side.** A small `errorToast` system maps `ErrorCode` to a friendly line ("That room doesn't exist", "The game has already started", "It's not your turn yet"). Transient action errors (not your turn, illegal move) show a brief toast and the UI stays put. Fatal/session errors (`SESSION_INVALID`, `ROOM_NOT_FOUND` on rejoin) clear the token and route to Landing with an explanatory banner. Never leave the user on a frozen screen with no feedback.
+
+**Loading & empty states to style explicitly.** Connecting to server, waking server (§17), waiting for players in lobby, waiting for another player's turn/decision, paused for a disconnected player, reconnecting. Each is a defined visual state, not a blank screen.
+
+**Gate** (Phase 4 server mapping, Phase 7 client UX): every `ErrorCode` is reachable in a test; malformed payloads and out-of-turn/illegal/wrong-owner actions return the correct code and leave game state unchanged; the client shows the mapped friendly message and routes session-fatal errors back to Landing.
+
+---
+
+## 16. Input validation, names & abuse hardening
+
+Because the room URL can be shared and the server is public, treat all client input as untrusted.
+
+- **Payload validation.** Validate every inbound event's shape/types at the server boundary (a lightweight schema/guard per event). Reject malformed input with `MALFORMED_PAYLOAD`. Cap string lengths and array sizes; ignore unknown fields.
+- **Display names.** Trim; collapse whitespace; strip control characters; enforce length (1–20 visible chars); reject empty-after-trim. Recommend allowing duplicates but disambiguating by seat in the UI. Provide a default like "Player" if needed. Profanity filter out of scope unless trivial.
+- **Rate limiting.** Per-socket limits on room creation and action spam (token-bucket on `room:create` and on `play`/`bid`/`resolve`) returning `RATE_LIMITED`. Cap concurrent rooms server-wide and players per room (6) to bound memory.
+- **Authority checks.** Server is the only authority: re-verify host-only actions (`game:start`, `configureSpecials`, `removePlayer`, `playAgain`, bot add/remove), turn ownership, and decision ownership on every action regardless of what the client UI allows.
+- **Room codes.** Treat the code as the only access control (fine for friends). Codes are unguessable-enough (4–6 chars, unambiguous alphabet, §4 Phase 4) and rooms are reaped when empty.
+
+**Gate** (Phase 4): oversized/malformed payloads, blank/over-long names, host-only actions from non-hosts, and rapid action spam are all rejected with the right codes; player and room caps hold.
+
+---
+
+## 17. Connection lifecycle & cold-start UX
+
+- **Socket.IO config.** Enable client reconnection with exponential backoff (a few-second cap) and a sensible attempt ceiling; configure server `pingInterval`/`pingTimeout` so a backgrounded mobile tab is detected within a reasonable window but brief blips don't drop seats. App-level `room:rejoin` (§9) sits on top of transport reconnection.
+- **Render free-tier cold start.** Render's free tier spins down after inactivity; the first connection afterward can take tens of seconds. The client must show a distinct **"Waking up the server…"** state (not a generic spinner) with automatic retry and a manual retry button. Document in the README; note the warm-up implication for in-memory state (§9, §10).
+- **Connection banner states.** Connecting, waking server, connected, reconnecting, paused-for-player, session-ended. Driven from the socket wrapper, rendered via `ConnectionBanner` / `Banner`.
+- **Multi-tab / duplicate session.** Recommend **last-connection-wins** (newest socket owns the seat; the older sees a "this session was opened elsewhere" notice).
+
+**Gate** (Phase 5/7): a simulated transport drop reconnects cleanly via backoff then `room:rejoin`; a slow first connection shows the waking-server state and recovers; a second tab on the same token results in the defined single-owner behaviour.
+
+---
+
+## 18. Client persistence (localStorage)
+
+One small typed persistence module owns all browser storage (no scattered `localStorage` calls; SSR-safe access with try/catch). Keys:
+
+- `wizarden.session` — `{ token, roomCode }` for auto-rejoin; cleared on session-fatal errors, Leave, and game-over return to Landing.
+- `wizarden.name` — last display name, prefilled on Landing.
+- `wizarden.settings` — `{ sound: boolean, animations: boolean }`, read on load, written on toggle.
+
+No game state is persisted (server is authoritative). Storage failures degrade gracefully.
+
+**Gate** (Phase 7): reload restores name and settings; a valid session auto-rejoins; clearing on Leave/fatal works.
+
+---
+
+## 19. Accessibility & responsive/device support
+
+- **Targets & contrast.** Tap targets ≥ ~44px; sensible contrast on dark; never colour-only (suits carry a shape/glyph + letter, §14).
+- **Screen-reader & keyboard.** Cards/bids/actions have accessible labels ("Red 7", "Wizard", "Bid 3", "Play Dragon"); modals/sheets trap focus and restore on close; visible `focus-visible` ring; an `aria-live` region announces turn changes, your pending decision, pause/resume, and round results.
+- **Reduced motion.** Honour `prefers-reduced-motion` (§14).
+- **Responsive range.** Portrait primary; minimum supported width ~320px; verify small→large phones. On landscape, show a lightweight "rotate to portrait" hint rather than a full landscape layout for v1. Tablets get the portrait layout centred with max-width.
+
+**Gate** (Phase 8): keyboard-only and screen-reader pass of a full turn; reduced-motion verified; layout checked at 320px and a large phone; landscape shows the rotate hint.
+
+---
+
+## 20. Testing strategy: invariants & fuzz harness
+
+Beyond the per-phase gates, add two engine-level safety nets (special-card interactions are the highest-risk area).
+
+- **Engine invariants (dev assertions).** After every engine action assert, in dev/test builds: total cards across all hands + pile + current trick + completed tricks + set-aside (bombed) equals the full deck size; no duplicate card id in two places; each player's `tricksWon`/`bid` within `0..n`; recorded tricks consistent with bombs voided; exactly the expected pending decisions outstanding for the phase. A violated invariant fails loudly with the current seed.
+- **Fuzz / property harness (`engine/__fuzz__`).** A runner that plays many thousands of complete games (configurable) with random player counts (3–6), all specials, and a random-but-legal policy for every action/decision (Juggler pass, Cloud adjust, Witch swap, Werewolf swap, Vampire). Asserts: no crash; every game reaches `gameOver`; all invariants hold after every step; scores match §7.4; the resolver never deadlocks on pending decisions. On failure prints the seed + action log for deterministic replay.
+- **Deterministic replay.** A helper that, given a seed + action list, reconstructs a game state for debugging a fuzz failure.
+
+**Gate** (own checkpoint after Phase 3, re-run after Phase 5): a fuzz batch of ≥ several thousand all-specials games passes with zero invariant violations and zero unresolved-decision deadlocks; a deliberately corrupted action is caught by an invariant.
+
+---
+
+## 21. Tooling, config & CI
+
+- **Lint/format.** ESLint (TypeScript, strict) + Prettier at the root, applied to all packages; `pnpm lint` and `pnpm typecheck` scripts. No `any` in cross-boundary contracts.
+- **Typed env config.** One config module per runtime package that reads and validates env vars at startup and fails fast with a clear message if a required one is missing/malformed (`VITE_SERVER_URL`, `VITE_ENABLE_DEBUG`; `CLIENT_ORIGIN`, `PORT`, `ENABLE_DEBUG`). Ship `.env.example` files.
+- **CI.** A GitHub Actions workflow on push/PR that runs install, typecheck, lint, build, and the test suite (incl. a small fuzz batch) across the workspace, so a broken build is caught before Netlify/Render auto-deploy. Keep it green as a merge gate.
+- **Scripts.** Root `dev` runs client + server together; `build`/`test`/`lint`/`typecheck` fan out across workspaces.
+
+**Gate** (Phase 0, extended in Phase 9): CI runs green on a clean checkout; a missing required env var fails startup with a readable error; `.env.example` files exist and match the config modules.
+
+---
+
+## 22. PWA, metadata & assets
+
+Make Wizarden installable (stays online-only; no offline gameplay).
+
+- **Web app manifest** — name "Wizarden", short name, theme/background colours matching §14 (`#14121C` / `#7C5CFF`), `display: standalone`, portrait orientation, full icon set (maskable + standard, 192/512).
+- **Document metadata** — title, description, `theme-color`, favicon, Open Graph tags so a shared room link shows a clean preview.
+- **Service worker (minimal)** — app-shell caching only for fast loads; do NOT cache game traffic or attempt offline play. Keep it simple (or skip the SW for v1 and ship only the manifest if a SW risks staleness; flag the choice).
+- **Asset licensing** — all fonts, icons, the place-card sound, and card emblems must be original or open-licensed; no AMIGO artwork. Keep an `ASSETS.md` noting each asset's source/licence.
+
+**Gate** (Phase 9): the app passes an installability check (valid manifest + icons), launches standalone in portrait, a shared link renders an OG preview, and `ASSETS.md` accounts for every third-party asset's licence.
+
+---
+
+## 23. Additional features (settings, full rules, game modes, persistent leaderboard)
+
+### 23.1 Full rules popup
+In addition to the `HowToPlay` quick reference (§13), a **Rules** button (available from `AppMenu` and Landing) opens a large scrollable popup containing the **complete rulebook** — the full content of `wizard-30-year-edition-rules.md` rendered in-app (our own paraphrased text; no AMIGO artwork/verbatim). Reuse the `Modal`/`Sheet` primitive; trap focus; scrollable; dismissible.
+
+### 23.2 Settings: theme + language
+Extend `SettingsPanel` (§13) and the persisted `wizarden.settings`:
+- **Theme:** light / dark toggle. **Dark is the default** (§14). Add a light palette to `styles/theme.css` via a `:root[data-theme="light"]` override (same token names, light values); the app sets `data-theme` on `<html>` from the setting. All components already pull from tokens, so no per-component changes are needed.
+- **Language:** **English (default) / Dutch / German.** Add a small i18n layer (`lib/i18n.ts`) with a typed message catalogue per locale and a `t(key)` helper + a `useLocale` hook reading the setting. All user-facing strings route through `t()`. The full-rules popup and `HowToPlay` may stay English-only in v1 if translating them is out of scope (flag it), but UI chrome (buttons, menus, banners, errors) is translated.
+
+`wizarden.settings` becomes `{ sound, animations, theme: 'light'|'dark', language: 'en'|'nl'|'de' }`. Read on load; written on change; defaults `dark` + `en`.
+
+### 23.3 Game modes (full / half)
+Add a **game mode** chosen by the host before start, threaded through the contracts:
+- `GameMode = 'full' | 'half'` in `@wizarden/shared`.
+- **Full game:** the standard fixed round count (60 ÷ players, §7.1).
+- **Half game:** half the rounds for a quicker session — `ceil(fullRounds / 2)` (3p→10, 4p→8, 5p→6, 6p→5). The engine takes the mode at `createGame` and sets `totalRounds` accordingly; everything else (dealing, final-round trump) is unchanged.
+- A **Game-mode select** UI appears in the pre-game flow (a popup/step before/inside the Lobby) where the host picks Full or Half; the choice is shown to all players and included in `lobby`-phase `ClientGameState` (add `gameMode` to the state).
+- `game:start` (or a new `lobby:configureMode`) carries the mode; server validates host-only.
+
+### 23.4 Persistent leaderboard (cross-game, server-side)
+A persistent **leaderboard** of game wins, surfaced as a popup from the pre-lobby / game-mode select screen:
+- **Scoring:** each winner of a **full** game gets **1 point**; each winner of a **half** game gets **0.5 points**. Ties → all tied winners score. **Debug/test games do not count** (games where `ENABLE_DEBUG` was used, any bot was present, or a 2-seat game) — only real human games.
+- **Storage:** keyed by display **name** (case-insensitive, trimmed). The store keeps **all** winners ever, but the popup shows the **top 5** by points (ties broken by most recent, then name).
+- **Server-authoritative + persisted.** On `game:over`, if the game counts, the server increments each winner's tally and persists it. The client fetches the leaderboard (a `leaderboard:get` → `leaderboard:data` event, or an HTTP `GET /leaderboard`) to render the popup.
+- **Persistence choice (MANUAL SETUP — see §10 tension).** §10 says "no database, in-memory only" for *game* state; the leaderboard is the one piece of *cross-game* data that must outlive a process restart. Options, recommended order:
+  1. **A small JSON file on a Render persistent disk** (simplest; Render free tier has **no** persistent disk, so this needs a paid disk or survives only while warm).
+  2. **A free hosted KV/DB** (e.g. Upstash Redis, Supabase, or Neon Postgres free tier) read/written by the server via an env-configured URL — survives restarts on free tier. **Recommended.**
+  3. **In-memory only** (leaderboard resets when the server sleeps/redeploys) — acceptable fallback for v1 if no external store is wanted; flag clearly in the UI/README.
+  The server abstracts this behind a `LeaderboardStore` interface with an in-memory implementation by default and a pluggable persistent backend, so swapping in (2) later is additive. **Name-based scoring is spoofable** (no accounts) — acknowledge it's fine for friends.
+
+**Gate** (new client work in Phase 7/8, server in Phase 4/9): the Rules popup shows the full rulebook and scrolls; theme + language toggles persist across reload and re-render the UI; the host can pick Full/Half and all players see the mode and the resulting round count; finishing a real (non-debug) game updates the leaderboard, a half-game win scores 0.5, debug/bot games are excluded, and the popup shows the top 5.

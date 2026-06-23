@@ -26,6 +26,7 @@ function jugglerWaitingGame(): GameState {
     players: seatPlayers(3),
     initialPlayerCount: 3,
     totalRounds: 20,
+    gameMode: 'full',
     selectedSpecials: ['juggler'],
     round: {
       roundNumber: 2,

@@ -4,6 +4,7 @@
 
 import type {
   Card,
+  GameMode,
   PendingDecision,
   Phase,
   PlayerPublic,
@@ -52,6 +53,7 @@ export interface GameState {
   players: EnginePlayer[]; // seat-indexed, length = initial player count
   initialPlayerCount: number;
   totalRounds: number; // fixed at game start
+  gameMode: GameMode; // full | half
   selectedSpecials: SpecialType[];
   round: RoundState | null;
   currentTurnSeat: number | null; // single seat to act (bidder / card to play)

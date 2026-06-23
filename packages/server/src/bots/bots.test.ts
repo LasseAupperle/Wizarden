@@ -3,6 +3,7 @@ import { io as ioClient, type Socket } from 'socket.io-client';
 import type { ClientGameState, SpecialType } from '@wizarden/shared';
 import { createWizardenServer, type WizardenServer } from '../index.js';
 import { Room } from '../rooms/room.js';
+import { InMemoryLeaderboard } from '../rooms/leaderboard.js';
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -12,7 +13,8 @@ const ALL_SPECIALS: SpecialType[] = [
 
 describe('Phase 6 — bots (debug only)', () => {
   it('an all-bot game with every special runs to gameOver (no illegal moves)', async () => {
-    const room = new Room('BOTS', { enableDebug: true, botDelayMs: 0, roundSummaryMs: 0 });
+    const leaderboard = new InMemoryLeaderboard();
+    const room = new Room('BOTS', { enableDebug: true, botDelayMs: 0, roundSummaryMs: 0, leaderboard });
     room.selectedSpecials = ALL_SPECIALS;
     for (let i = 0; i < 4; i++) room.addPlayer(`Bot${i}`, { isBot: true });
 
@@ -35,6 +37,8 @@ describe('Phase 6 — bots (debug only)', () => {
 
     expect(room.game!.phase).toBe('gameOver');
     expect(room.game!.scoreboard).toHaveLength(room.game!.totalRounds);
+    // bot games never count toward the leaderboard
+    expect(leaderboard.all()).toHaveLength(0);
     room.dispose();
   }, 30000);
 

@@ -15,8 +15,11 @@ import {
 import type { RoomManager } from '../rooms/roomManager.js';
 import type { Room } from '../rooms/room.js';
 import type { SessionStore } from '../rooms/sessions.js';
+import type { LeaderboardStore } from '../rooms/leaderboard.js';
 import type { ResolvePayload } from '../engine/game.js';
 import { broadcastRoom, projectFor } from './broadcast.js';
+
+const LEADERBOARD_TOP = 5;
 
 type Io = Server<ClientToServerEvents, ServerToClientEvents>;
 type Sock = Socket<ClientToServerEvents, ServerToClientEvents>;
@@ -24,6 +27,7 @@ type Sock = Socket<ClientToServerEvents, ServerToClientEvents>;
 export interface HandlerDeps {
   roomManager: RoomManager;
   sessions: SessionStore;
+  leaderboard: LeaderboardStore;
   enableDebug: boolean;
 }
 
@@ -114,6 +118,18 @@ export function registerSocketHandlers(io: Io, socket: Sock, deps: HandlerDeps):
       if (!r.ok) return emitError(socket, r.error.code, r.error.message);
       broadcastRoom(io, room);
     });
+  });
+
+  socket.on(ClientEvents.lobbyConfigureMode, ({ mode }) => {
+    withRoom((room, seat) => {
+      const r = room.configureMode(seat, mode);
+      if (!r.ok) return emitError(socket, r.error.code, r.error.message);
+      broadcastRoom(io, room);
+    });
+  });
+
+  socket.on(ClientEvents.leaderboardGet, () => {
+    socket.emit(ServerEvents.leaderboardData, { entries: deps.leaderboard.top(LEADERBOARD_TOP) });
   });
 
   socket.on(ClientEvents.lobbyAddBot, () => {

@@ -5,6 +5,7 @@ import { Server } from 'socket.io';
 import type { ClientToServerEvents, ServerToClientEvents } from '@wizarden/shared';
 import { RoomManager } from './rooms/roomManager.js';
 import { SessionStore } from './rooms/sessions.js';
+import { InMemoryLeaderboard, type LeaderboardStore } from './rooms/leaderboard.js';
 import { registerSocketHandlers } from './net/handlers.js';
 
 export interface WizardenServerOptions {
@@ -12,6 +13,7 @@ export interface WizardenServerOptions {
   enableDebug?: boolean;
   roundSummaryMs?: number;
   botDelayMs?: number;
+  leaderboard?: LeaderboardStore;
 }
 
 export interface WizardenServer {
@@ -20,6 +22,7 @@ export interface WizardenServer {
   io: Server<ClientToServerEvents, ServerToClientEvents>;
   roomManager: RoomManager;
   sessions: SessionStore;
+  leaderboard: LeaderboardStore;
   listen: (port: number) => Promise<number>;
   close: () => Promise<void>;
 }
@@ -29,9 +32,14 @@ export function createWizardenServer(options: WizardenServerOptions = {}): Wizar
   const enableDebug = options.enableDebug ?? process.env.ENABLE_DEBUG === 'true';
   const allowedOrigins = Array.from(new Set([clientOrigin, 'http://localhost:5173']));
 
+  const leaderboard = options.leaderboard ?? new InMemoryLeaderboard();
+
   const app = express();
   app.get('/health', (_req, res) => {
     res.json({ ok: true, name: 'wizarden-server', version: '0.1.0' });
+  });
+  app.get('/leaderboard', (_req, res) => {
+    res.json({ entries: leaderboard.top(5) });
   });
 
   const httpServer = createServer(app);
@@ -44,10 +52,11 @@ export function createWizardenServer(options: WizardenServerOptions = {}): Wizar
     enableDebug,
     roundSummaryMs: options.roundSummaryMs,
     botDelayMs: options.botDelayMs,
+    leaderboard,
   });
 
   io.on('connection', (socket) => {
-    registerSocketHandlers(io, socket, { roomManager, sessions, enableDebug });
+    registerSocketHandlers(io, socket, { roomManager, sessions, leaderboard, enableDebug });
   });
 
   return {
@@ -56,6 +65,7 @@ export function createWizardenServer(options: WizardenServerOptions = {}): Wizar
     io,
     roomManager,
     sessions,
+    leaderboard,
     listen: (port: number) =>
       new Promise<number>((resolve) => {
         httpServer.listen(port, () => {

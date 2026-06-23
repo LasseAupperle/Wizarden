@@ -173,7 +173,11 @@ describe('Phase 4 — server protocol over real sockets', () => {
     expect(host.state!.phase).toBe('gameOver');
     expect(host.state!.gameOver!.standings).toHaveLength(3);
     expect(host.state!.scoreboard).toHaveLength(20);
-  }, 30000);
+
+    // a real (non-debug, non-bot) full game records exactly 1 point on the leaderboard
+    const totalPoints = server.leaderboard.all().reduce((sum, e) => sum + e.points, 0);
+    expect(totalPoints).toBe(1);
+  }, 40000);
 
   it('rejects out-of-turn bids, bogus plays, and mid-game joins', async () => {
     const a = await makeClient();

@@ -1,0 +1,11 @@
+{
+  "name": "Wizarden",
+  "short_name": "Wizarden",
+  "description": "Real-time multiplayer Wizard (30-Year Edition).",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#14121C",
+  "theme_color": "#7C5CFF",
+  "icons": []
+}

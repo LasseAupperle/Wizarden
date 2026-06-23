@@ -1,0 +1,57 @@
+/* Design tokens (spec §14). Every screen/card/menu pulls from these — never
+   hardcode colours/radii/fonts per component. Dark theme is the default. */
+:root {
+  /* surfaces */
+  --bg: #14121c;
+  --surface: #1f1b2b;
+  --elevated: #2a2540;
+  --border: rgba(244, 242, 250, 0.08);
+
+  /* accents */
+  --accent: #7c5cff; /* wizard violet */
+  --accent-strong: #6b48ff;
+  --gold: #d9a441; /* premium accent, used sparingly */
+
+  /* suits (distinguishable on dark; never colour-only — pair with a glyph/letter) */
+  --suit-red: #e5484d;
+  --suit-blue: #3b82f6;
+  --suit-green: #2fb87a;
+  --suit-yellow: #ffd23f;
+
+  /* text + score */
+  --text: #f4f2fa;
+  --text-secondary: #a8a2bc;
+  --positive: #2fb87a;
+  --negative: #e5484d;
+
+  /* shape + type */
+  --radius-card: 12px;
+  --radius-ui: 14px;
+  --font-display: 'Cinzel', Georgia, serif;
+  --font-ui: 'Outfit', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+
+  /* shadows */
+  --shadow-card: 0 6px 18px -8px rgba(0, 0, 0, 0.6);
+  --shadow-sheet: 0 -10px 30px -12px rgba(0, 0, 0, 0.7);
+}
+
+/* Light theme (§23.2) — same token names, light values. Dark remains default. */
+:root[data-theme='light'] {
+  --bg: #f3f1fb;
+  --surface: #ffffff;
+  --elevated: #ffffff;
+  --border: rgba(20, 18, 28, 0.1);
+  --accent: #6b48ff;
+  --accent-strong: #5a37f0;
+  --gold: #b07d12;
+  --suit-red: #d12f34;
+  --suit-blue: #2563eb;
+  --suit-green: #1f9d63;
+  --suit-yellow: #c79400;
+  --text: #1a1726;
+  --text-secondary: #5b5570;
+  --positive: #1f9d63;
+  --negative: #d12f34;
+  --shadow-card: 0 6px 18px -10px rgba(20, 18, 28, 0.35);
+  --shadow-sheet: 0 -10px 30px -14px rgba(20, 18, 28, 0.3);
+}

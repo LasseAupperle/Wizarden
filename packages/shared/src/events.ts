@@ -5,6 +5,14 @@
 import type { Card, PlayDecision, SpecialType, Suit } from './cards.js';
 import type { PendingDecision } from './decisions.js';
 import type { ClientGameState, PlayerPublic, RoundResult } from './state.js';
+import type { GameMode } from './constants.js';
+
+export interface LeaderboardEntry {
+  name: string;
+  points: number; // 1 per full-game win, 0.5 per half-game win
+  wins: number;
+  lastWonAt: number; // epoch ms
+}
 
 // ---- event-name constants (avoid stringly-typed emit/on across the codebase) ----
 
@@ -14,8 +22,10 @@ export const ClientEvents = {
   roomRejoin: 'room:rejoin',
   roomLeave: 'room:leave',
   lobbyConfigureSpecials: 'lobby:configureSpecials',
+  lobbyConfigureMode: 'lobby:configureMode',
   lobbyAddBot: 'lobby:addBot',
   lobbyRemoveBot: 'lobby:removeBot',
+  leaderboardGet: 'leaderboard:get',
   gameStart: 'game:start',
   gameBid: 'game:bid',
   gamePlay: 'game:play',
@@ -36,6 +46,7 @@ export const ServerEvents = {
   peerLeft: 'peer:left',
   gamePaused: 'game:paused',
   gameResumed: 'game:resumed',
+  leaderboardData: 'leaderboard:data',
   error: 'error',
 } as const;
 
@@ -74,6 +85,10 @@ export type RoomLeavePayload = Record<string, never>;
 export interface LobbyConfigureSpecialsPayload {
   specials: SpecialType[];
 }
+export interface LobbyConfigureModePayload {
+  mode: GameMode;
+}
+export type LeaderboardGetPayload = Record<string, never>;
 export interface LobbyAddBotPayload {
   seat?: number;
 }
@@ -122,6 +137,9 @@ export interface PeerPayload {
   seat: number;
   name: string;
 }
+export interface LeaderboardDataPayload {
+  entries: LeaderboardEntry[]; // top N
+}
 export interface PausePayload {
   seat?: number;
   name?: string;
@@ -138,8 +156,10 @@ export interface ClientToServerEvents {
   [ClientEvents.roomRejoin]: (p: RoomRejoinPayload) => void;
   [ClientEvents.roomLeave]: (p: RoomLeavePayload) => void;
   [ClientEvents.lobbyConfigureSpecials]: (p: LobbyConfigureSpecialsPayload) => void;
+  [ClientEvents.lobbyConfigureMode]: (p: LobbyConfigureModePayload) => void;
   [ClientEvents.lobbyAddBot]: (p: LobbyAddBotPayload) => void;
   [ClientEvents.lobbyRemoveBot]: (p: LobbyRemoveBotPayload) => void;
+  [ClientEvents.leaderboardGet]: (p: LeaderboardGetPayload) => void;
   [ClientEvents.gameStart]: (p: GameStartPayload) => void;
   [ClientEvents.gameBid]: (p: GameBidPayload) => void;
   [ClientEvents.gamePlay]: (p: GamePlayPayload) => void;
@@ -160,6 +180,7 @@ export interface ServerToClientEvents {
   [ServerEvents.peerLeft]: (p: PeerPayload) => void;
   [ServerEvents.gamePaused]: (p: PausePayload) => void;
   [ServerEvents.gameResumed]: (p: PausePayload) => void;
+  [ServerEvents.leaderboardData]: (p: LeaderboardDataPayload) => void;
   [ServerEvents.error]: (p: ErrorPayload) => void;
 }
 

@@ -4,6 +4,7 @@
 
 import type { Card, PlayDecision, SpecialType, Suit } from './cards.js';
 import type { PendingDecision } from './decisions.js';
+import type { GameMode } from './constants.js';
 
 export type Phase =
   | 'lobby'
@@ -54,6 +55,7 @@ export interface ClientGameState {
   yourHand: Card[]; // empty in lobby
   roundNumber: number; // 1-based
   totalRounds: number; // fixed at game start; unchanged if players later leave
+  gameMode: GameMode; // full | half (§23.3)
   startMarkerSeat: number;
   currentTurnSeat: number | null; // the single seat to act (bidder / card to play); null otherwise
   awaitingDecisionSeats: number[]; // seats that still owe a pending decision (single or collective)

@@ -9,6 +9,7 @@ import {
   MIN_PLAYERS_DEBUG,
   ROUND_SUMMARY_MS,
   type ErrorCode,
+  type GameMode,
   type PlayDecision,
   type SpecialType,
 } from '@wizarden/shared';
@@ -25,6 +26,7 @@ import {
 import { awaitingDecisionSeats, playerAt as enginePlayerAt, type GameState } from '../engine/internalState.js';
 import { validateSpecials } from '../engine/deck.js';
 import { decideBotMove } from '../bots/randomBot.js';
+import type { LeaderboardStore } from './leaderboard.js';
 
 export interface RoomPlayer {
   seat: number;
@@ -40,6 +42,7 @@ export interface RoomOptions {
   roundSummaryMs?: number;
   enableDebug?: boolean;
   botDelayMs?: number;
+  leaderboard?: LeaderboardStore;
 }
 
 export type RoomResult = ActionResult | { ok: false; error: { code: ErrorCode; message: string } };
@@ -57,6 +60,7 @@ export class Room {
   readonly code: string;
   players: RoomPlayer[] = [];
   selectedSpecials: SpecialType[] = [];
+  gameMode: GameMode = 'full';
   started = false;
   game: GameState | null = null;
 
@@ -64,11 +68,12 @@ export class Room {
   onChange: () => void = () => {};
 
   /** Broadcast bookkeeping so round:result / game:over / pause fire once per transition. */
-  flags = { lastResultRound: -1, gameOverEmitted: false, paused: false };
+  flags = { lastResultRound: -1, gameOverEmitted: false, paused: false, leaderboardRecorded: false };
 
   private readonly roundSummaryMs: number;
   private readonly enableDebug: boolean;
   private readonly botDelayMs: number;
+  private readonly leaderboard?: LeaderboardStore;
   private advanceTimer: ReturnType<typeof setTimeout> | null = null;
   private botTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -77,6 +82,7 @@ export class Room {
     this.roundSummaryMs = opts.roundSummaryMs ?? ROUND_SUMMARY_MS;
     this.enableDebug = opts.enableDebug ?? false;
     this.botDelayMs = opts.botDelayMs ?? 250;
+    this.leaderboard = opts.leaderboard;
   }
 
   // ---- lobby ----
@@ -130,6 +136,14 @@ export class Room {
     return { ok: true, state: this.game ?? ({} as GameState) };
   }
 
+  configureMode(seat: number, mode: GameMode): RoomResult {
+    if (this.started) return fail(ErrorCodes.gameInProgress, 'game already started');
+    if (this.playerBySeat(seat)?.isHost !== true) return fail(ErrorCodes.notHost, 'host only');
+    if (mode !== 'full' && mode !== 'half') return fail(ErrorCodes.invalidConfig, 'bad game mode');
+    this.gameMode = mode;
+    return { ok: true, state: this.game ?? ({} as GameState) };
+  }
+
   addBot(name = `Bot ${this.players.length}`): RoomResult {
     if (!this.enableDebug) return fail(ErrorCodes.debugDisabled, 'debug only');
     if (this.started) return fail(ErrorCodes.gameInProgress, 'game already started');
@@ -160,10 +174,11 @@ export class Room {
       roomCode: this.code,
       players: this.players.map((p) => ({ seat: p.seat, name: p.name, isBot: p.isBot, isHost: p.isHost })),
       selectedSpecials: this.selectedSpecials,
+      gameMode: this.gameMode,
       seed: randomSeed(),
     });
     this.started = true;
-    this.flags = { lastResultRound: -1, gameOverEmitted: false, paused: false };
+    this.flags = { lastResultRound: -1, gameOverEmitted: false, paused: false, leaderboardRecorded: false };
     this.afterMutation();
     return { ok: true, state: this.game };
   }
@@ -185,7 +200,7 @@ export class Room {
     this.clearTimer();
     this.started = false;
     this.game = null;
-    this.flags = { lastResultRound: -1, gameOverEmitted: false, paused: false };
+    this.flags = { lastResultRound: -1, gameOverEmitted: false, paused: false, leaderboardRecorded: false };
     return { ok: true, state: {} as GameState };
   }
 
@@ -206,8 +221,28 @@ export class Room {
 
   private afterMutation(): void {
     if (this.game?.phase === 'roundEnd') this.scheduleAdvance();
+    if (this.game?.phase === 'gameOver' && !this.flags.leaderboardRecorded) {
+      this.flags.leaderboardRecorded = true;
+      this.recordLeaderboard();
+    }
     this.recomputePause();
     this.driveBots();
+  }
+
+  /** Real (non-debug, non-bot, 3+ player) games update the persistent leaderboard. */
+  private countsForLeaderboard(): boolean {
+    if (!this.game) return false;
+    if (this.players.some((p) => p.isBot)) return false;
+    return this.game.initialPlayerCount >= MIN_PLAYERS;
+  }
+
+  private recordLeaderboard(): void {
+    if (!this.leaderboard || !this.game || !this.countsForLeaderboard()) return;
+    const contenders = (this.game.standings ?? []).filter((s) => s.inPlay);
+    if (contenders.length === 0) return;
+    const max = Math.max(...contenders.map((s) => s.totalScore));
+    const winners = contenders.filter((s) => s.totalScore === max).map((s) => s.name);
+    this.leaderboard.recordWin(winners, this.game.gameMode === 'half' ? 0.5 : 1);
   }
 
   // ---- bots (debug only) ----

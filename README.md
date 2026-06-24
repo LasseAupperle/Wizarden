@@ -21,10 +21,15 @@ packages/
 
 ```bash
 pnpm install
-pnpm build      # shared -> server -> client
-pnpm test       # all Vitest suites (engine, server sockets, client, fuzz)
-pnpm lint       # typecheck all packages
-pnpm dev        # shared (watch) + server + client
+pnpm build        # shared -> server -> client
+pnpm test         # all Vitest suites (engine, server sockets, client, fuzz)
+pnpm typecheck    # tsc --noEmit across packages
+pnpm lint         # ESLint
+pnpm format       # Prettier --write
+pnpm dev          # shared (watch) + server + client
+
+# opt-in browser E2E (downloads Chromium, runs the prod-like stack):
+pnpm e2e:install && pnpm test:e2e
 ```
 
 - Client dev: http://localhost:5173 · Server dev: http://localhost:3001 (`/health`, `/leaderboard`)
@@ -43,11 +48,23 @@ cp packages/client/.env.example packages/client/.env.local
 | Server | `PORT` | Listen port (Render provides it) |
 | Server | `CLIENT_ORIGIN` | Allowed CORS/Socket.IO origin = the Netlify URL |
 | Server | `ENABLE_DEBUG` | `"true"` enables bots + 2-seat start (off in prod) |
+| Server | `REDIS_URL` | _Optional_ Upstash Redis (`rediss://…`) for a persistent leaderboard |
+| Server | `LOG_LEVEL` | _Optional_ pino level (default `info`) |
 | Client | `VITE_SERVER_URL` | Backend URL the client connects to = the Render URL |
 | Client | `VITE_ENABLE_DEBUG` | `"true"` enables debug UI (off in prod) |
+| Client | `VITE_SENTRY_DSN` | _Optional_ Sentry DSN for client error tracking |
 
 `packages/*/src/config.ts` / `lib/env.ts` validate these at startup and warn/fail
 fast on a missing or malformed required value.
+
+## Logs & monitoring
+
+- **Server logs:** structured JSON (pino) to stdout → view live in **Render →
+  `wizarden-server` → Logs** (or `render logs` via the Render CLI). Locally they
+  print to the terminal running `pnpm dev`.
+- **Client errors:** browser console; optionally **Sentry** — set
+  `VITE_SENTRY_DSN` (Netlify env) and errors stream to your Sentry project. The
+  Sentry SDK is lazy-loaded, so it adds nothing to the bundle when unset.
 
 ## Deployment (auto-deploy on push to `main`)
 
@@ -61,14 +78,14 @@ fast on a missing or malformed required value.
 > server…" state and retries. In-memory game state is lost on a cold start, so a
 > stale session routes cleanly back to the Landing screen.
 
-## Leaderboard persistence (decision needed — see §23.4)
+## Leaderboard persistence
 
 Game state is in-memory by design. The **leaderboard** is the one cross-game
-value that should outlive a restart. The server abstracts it behind a
-`LeaderboardStore` with an in-memory default. To make wins persist on Render's
-free tier, plug in a free hosted store (recommended: Upstash Redis / Neon /
-Supabase) behind that interface — additive, no other code changes. Until then,
-the leaderboard resets when the server sleeps/redeploys.
+value that outlives a restart: the server abstracts it behind a
+`LeaderboardStore`, and `RedisLeaderboard` (write-through over an in-memory
+mirror) persists wins to **Upstash Redis** when `REDIS_URL` is set — otherwise it
+falls back to in-memory (resets on restart). Full-game win = 1 pt, half-game =
+0.5; bot/debug games are excluded; the popup shows the top 5.
 
 ## End-to-end verification (manual)
 

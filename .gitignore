@@ -30,3 +30,8 @@ coverage/
 # throwaway local test harnesses / scratch runners (not committed)
 scratch/
 *.scratch.*
+
+# playwright
+test-results/
+playwright-report/
+.playwright/

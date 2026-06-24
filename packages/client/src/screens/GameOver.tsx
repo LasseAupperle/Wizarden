@@ -1,9 +1,51 @@
+import { useMemo, type CSSProperties } from 'react';
 import type { ClientGameState } from '@wizarden/shared';
 import { TopBar } from '../components/TopBar.js';
 import { Button } from '../components/ui/Button.js';
 import { Badge } from '../components/ui/Badge.js';
 import { useT } from '../lib/i18n.js';
 import { intents } from '../net/socket.js';
+
+const CONFETTI_COLORS = [
+  'var(--suit-red)',
+  'var(--suit-blue)',
+  'var(--suit-green)',
+  'var(--suit-yellow)',
+  'var(--accent)',
+  'var(--gold)',
+];
+
+/** Dependency-free confetti burst on game over (honours reduced-motion via CSS). */
+function Confetti() {
+  const pieces = useMemo(
+    () =>
+      Array.from({ length: 42 }, (_, i) => ({
+        left: Math.random() * 100,
+        bg: CONFETTI_COLORS[i % CONFETTI_COLORS.length]!,
+        delay: Math.random() * 0.7,
+        dur: 2.4 + Math.random() * 1.8,
+      })),
+    [],
+  );
+  return (
+    <div aria-hidden>
+      {pieces.map((p, i) => (
+        <span
+          key={i}
+          className="confetti-piece"
+          style={
+            {
+              left: `${p.left}%`,
+              background: p.bg,
+              '--delay': `${p.delay}s`,
+              '--dur': `${p.dur}s`,
+            } as CSSProperties
+          }
+        />
+      ))}
+    </div>
+  );
+}
 
 export function GameOver({ game }: { game: ClientGameState }) {
   const t = useT();
@@ -15,15 +57,16 @@ export function GameOver({ game }: { game: ClientGameState }) {
 
   return (
     <div className="flex min-h-dvh flex-col">
+      <Confetti />
       <TopBar center={t('gameOver')} />
       <main className="mx-auto w-full max-w-md flex-1 space-y-5 p-6">
-        <div className="text-center">
-          <div className="text-5xl" aria-hidden>
+        <div className="animate-pop text-center">
+          <div className="animate-bounce-soft text-6xl" aria-hidden>
             🏆
           </div>
           <h1 className="mt-2 font-display text-2xl text-ink">
             {winners.length > 1 ? t('winners') : t('winner')}:{' '}
-            {winners.map((w) => w.name).join(', ')}
+            <span className="wordmark">{winners.map((w) => w.name).join(', ')}</span>
           </h1>
         </div>
 

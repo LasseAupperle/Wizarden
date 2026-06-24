@@ -10,7 +10,13 @@
   /* accents */
   --accent: #7c5cff; /* wizard violet */
   --accent-strong: #6b48ff;
+  --accent-2: #ff5fa2; /* playful magenta, used in gradients */
   --gold: #d9a441; /* premium accent, used sparingly */
+
+  /* playful gradients (party-game feel) */
+  --grad-accent: linear-gradient(135deg, #8b6bff 0%, #ff5fa2 100%);
+  --grad-gold: linear-gradient(135deg, #f4cf76 0%, #d9a441 100%);
+  --grad-wordmark: linear-gradient(105deg, #b9a6ff 0%, #ff8fc4 45%, #f4cf76 100%);
 
   /* suits (distinguishable on dark; never colour-only — pair with a glyph/letter) */
   --suit-red: #e5484d;
@@ -43,7 +49,11 @@
   --border: rgba(20, 18, 28, 0.1);
   --accent: #6b48ff;
   --accent-strong: #5a37f0;
+  --accent-2: #e23d86;
   --gold: #b07d12;
+  --grad-accent: linear-gradient(135deg, #6b48ff 0%, #e23d86 100%);
+  --grad-gold: linear-gradient(135deg, #e0b54a 0%, #b07d12 100%);
+  --grad-wordmark: linear-gradient(105deg, #6b48ff 0%, #e23d86 50%, #b07d12 100%);
   --suit-red: #d12f34;
   --suit-blue: #2563eb;
   --suit-green: #1f9d63;

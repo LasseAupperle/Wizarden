@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type CSSProperties } from 'react';
 import { TopBar } from '../components/TopBar.js';
 import { Button } from '../components/ui/Button.js';
 import { Banner } from '../components/ui/Banner.js';
@@ -8,9 +8,43 @@ import { useGameStore } from '../store/gameStore.js';
 import { useT } from '../lib/i18n.js';
 import { storage } from '../lib/storage.js';
 import { intents } from '../net/socket.js';
+import { SUIT_META } from '../lib/specials.js';
+import type { Suit } from '@wizarden/shared';
 
 const inputCls =
   'w-full rounded-ui border border-line bg-elevated px-4 py-3 text-ink placeholder:text-muted outline-none focus:border-accent';
+
+/** Subtle drifting suit cards behind the Landing content (decorative only). */
+function FloatingCards() {
+  const deco: { suit: Suit; cls: string; rot: string; dur: string }[] = [
+    { suit: 'red', cls: 'left-[8%] top-[18%]', rot: '-12deg', dur: '7s' },
+    { suit: 'blue', cls: 'right-[10%] top-[24%]', rot: '10deg', dur: '8.5s' },
+    { suit: 'green', cls: 'left-[14%] bottom-[16%]', rot: '8deg', dur: '9s' },
+    { suit: 'yellow', cls: 'right-[12%] bottom-[20%]', rot: '-9deg', dur: '7.8s' },
+  ];
+  return (
+    <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>
+      {deco.map((d) => (
+        <div
+          key={d.suit}
+          className={`animate-drift absolute h-20 w-14 rounded-card opacity-[0.16] blur-[1px] ${d.cls}`}
+          style={
+            {
+              background: `var(--suit-${d.suit})`,
+              '--rot': d.rot,
+              '--dur': d.dur,
+              transform: `rotate(${d.rot})`,
+            } as CSSProperties
+          }
+        >
+          <span className="absolute inset-0 flex items-center justify-center text-3xl text-white/80">
+            {SUIT_META[d.suit].glyph}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 function initialCode(): string {
   if (typeof window === 'undefined') return '';
@@ -36,13 +70,14 @@ export function Landing() {
   };
 
   return (
-    <div className="flex min-h-dvh flex-col">
+    <div className="relative flex min-h-dvh flex-col overflow-hidden">
+      <FloatingCards />
       <TopBar center="" />
       {banner && <Banner tone="danger">{banner}</Banner>}
 
-      <main className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center gap-5 p-6">
+      <main className="relative mx-auto flex w-full max-w-md flex-1 flex-col justify-center gap-5 p-6">
         <div className="text-center">
-          <h1 className="font-display text-5xl font-bold tracking-tight text-ink">Wizarden</h1>
+          <h1 className="wordmark font-display text-6xl font-black tracking-tight">Wizarden</h1>
           <p className="mt-2 text-muted">{t('tagline')}</p>
         </div>
 

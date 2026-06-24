@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
+  ROUND_SUMMARY_MS,
   SUITS,
   type Card,
   type ClientGameState,
@@ -77,6 +78,15 @@ export function Game({ game }: { game: ClientGameState }) {
     if (trickLen > prevTrickLen.current) playPlaceCard();
     prevTrickLen.current = trickLen;
   }, [trickLen]);
+
+  // round-end countdown to the automatic next-round advance (server-scheduled)
+  const [countdown, setCountdown] = useState(0);
+  useEffect(() => {
+    if (game.phase !== 'roundEnd') return;
+    setCountdown(Math.ceil(ROUND_SUMMARY_MS / 1000));
+    const id = setInterval(() => setCountdown((c) => (c > 0 ? c - 1 : 0)), 1000);
+    return () => clearInterval(id);
+  }, [game.phase, game.roundNumber]);
 
   // screen-reader announcements (§19)
   const announce = useMemo(() => {
@@ -161,18 +171,23 @@ export function Game({ game }: { game: ClientGameState }) {
       {/* trick area — a faint violet "table" glow so the centre reads as a surface */}
       <div className="flex flex-1 flex-col items-center justify-center gap-3 p-4 bg-[radial-gradient(60%_45%_at_50%_42%,rgba(124,92,255,0.10),transparent_70%)]">
         {game.phase === 'roundEnd' && game.lastRoundResult ? (
-          <div className="rounded-ui border border-line bg-elevated p-4 text-center">
-            <div className="mb-1 font-display text-ink">Round {game.roundNumber}</div>
+          <div className="animate-pop min-w-[14rem] rounded-ui border border-line bg-elevated p-4 text-center shadow-card">
+            <div className="mb-2 font-display text-lg text-ink">Round {game.roundNumber}</div>
             {game.lastRoundResult.map((r) => (
-              <div key={r.seat} className="text-sm">
+              <div key={r.seat} className="flex items-center justify-between gap-4 text-sm">
                 <span className="text-muted">
-                  {game.players.find((p) => p.seat === r.seat)?.name}:{' '}
+                  {game.players.find((p) => p.seat === r.seat)?.name}
                 </span>
-                <span className={r.delta >= 0 ? 'text-positive' : 'text-negative'}>
+                <span className={cn('font-bold', r.delta >= 0 ? 'text-positive' : 'text-negative')}>
                   {r.delta >= 0 ? `+${r.delta}` : r.delta}
                 </span>
               </div>
             ))}
+            <div className="mt-3 text-xs text-muted">
+              {game.roundNumber >= game.totalRounds
+                ? 'Final scores…'
+                : `Next round in ${countdown}s…`}
+            </div>
           </div>
         ) : (
           <div className="flex min-h-[6rem] flex-wrap items-center justify-center gap-2">
@@ -189,13 +204,22 @@ export function Game({ game }: { game: ClientGameState }) {
       </div>
 
       {/* your status + hand */}
-      <div className="border-t border-line p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
+      <div
+        className={cn(
+          'border-t p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] transition-colors',
+          yourTurnToPlay ? 'animate-turn border-accent' : 'border-line',
+        )}
+      >
         <div className="mb-2 flex items-center justify-center gap-2 text-sm text-muted">
           <span className="font-semibold text-ink">{you?.name}</span>
           <Badge tone="accent">bid {you?.bid ?? '–'}</Badge>
           <Badge>won {you?.tricksWon ?? 0}</Badge>
           <Badge tone="gold">{you?.totalScore ?? 0}</Badge>
-          {yourTurnToPlay && <Badge tone="positive">your turn</Badge>}
+          {yourTurnToPlay && (
+            <span className="rounded-full bg-grad-accent px-2.5 py-0.5 text-xs font-bold text-white shadow-card">
+              ✋ your turn
+            </span>
+          )}
         </div>
         <div className="flex flex-wrap justify-center gap-1.5">
           {sortHand(game.yourHand).map((card) => (

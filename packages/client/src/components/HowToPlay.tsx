@@ -16,16 +16,17 @@ export function HowToPlay() {
         <h3 className="mb-1 font-display text-base text-ink">A round</h3>
         <p>
           Deal one more card each round. The top undealt card sets the trump colour. Predict your
-          tricks (clockwise of the dealer first), then play tricks: follow the led colour if you can;
-          Wizards and Jesters may always be played. Highest Wizard wins, else highest trump, else
-          highest card of the led colour.
+          tricks (clockwise of the dealer first), then play tricks: follow the led colour if you
+          can; Wizards and Jesters may always be played. Highest Wizard wins, else highest trump,
+          else highest card of the led colour.
         </p>
       </section>
       <section>
         <h3 className="mb-1 font-display text-base text-ink">Scoring</h3>
         <p>
           Correct prediction: <span className="text-positive">20 + 10 × your bid</span> (a correct 0
-          scores 20). Wrong: <span className="text-negative">−10 for every trick over or under</span>.
+          scores 20). Wrong:{' '}
+          <span className="text-negative">−10 for every trick over or under</span>.
         </p>
       </section>
       <section>

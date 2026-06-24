@@ -162,7 +162,10 @@ describe('Phase 4 — server protocol over real sockets', () => {
         await act(host, ordered[st.currentTurnSeat!]!, 'game:bid', { bid: 0 });
       } else if (st.phase === 'trick') {
         const actor = ordered[st.currentTurnSeat!]!;
-        await act(host, actor, 'game:play', { cardId: pickCard(actor.state!), decision: { type: 'none' } });
+        await act(host, actor, 'game:play', {
+          cardId: pickCard(actor.state!),
+          decision: { type: 'none' },
+        });
       } else if (st.phase === 'trumpDecision' || st.phase === 'preBid') {
         await act(host, ordered[st.awaitingDecisionSeats[0]!]!, 'game:resolve', { suit: 'red' });
       } else {
@@ -195,7 +198,12 @@ describe('Phase 4 — server protocol over real sockets', () => {
     const ordered = [a, b, c].sort((x, y) => x.seat - y.seat);
     // skip a trump decision if one is pending
     if (ordered[0]!.state!.phase === 'trumpDecision') {
-      await act(ordered[0]!, ordered[ordered[0]!.state!.awaitingDecisionSeats[0]!]!, 'game:resolve', { suit: 'red' });
+      await act(
+        ordered[0]!,
+        ordered[ordered[0]!.state!.awaitingDecisionSeats[0]!]!,
+        'game:resolve',
+        { suit: 'red' },
+      );
     }
     expect(ordered[0]!.state!.phase).toBe('bidding');
 

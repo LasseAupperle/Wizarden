@@ -15,7 +15,10 @@ export class TokenBucket {
   /** Consume one token; false when the bucket is empty (caller -> RATE_LIMITED). */
   take(): boolean {
     const now = Date.now();
-    this.tokens = Math.min(this.capacity, this.tokens + ((now - this.last) / 1000) * this.refillPerSec);
+    this.tokens = Math.min(
+      this.capacity,
+      this.tokens + ((now - this.last) / 1000) * this.refillPerSec,
+    );
     this.last = now;
     if (this.tokens >= 1) {
       this.tokens -= 1;

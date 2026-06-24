@@ -731,3 +731,23 @@ A persistent **leaderboard** of game wins, surfaced as a popup from the pre-lobb
   The server abstracts this behind a `LeaderboardStore` interface with an in-memory implementation by default and a pluggable persistent backend, so swapping in (2) later is additive. **Name-based scoring is spoofable** (no accounts) — acknowledge it's fine for friends.
 
 **Gate** (new client work in Phase 7/8, server in Phase 4/9): the Rules popup shows the full rulebook and scrolls; theme + language toggles persist across reload and re-render the UI; the host can pick Full/Half and all players see the mode and the resulting round count; finishing a real (non-debug) game updates the leaderboard, a half-game win scores 0.5, debug/bot games are excluded, and the popup shows the top 5.
+
+---
+
+## 24. Future upgrades (deferred, not built)
+
+Deliberately deferred — captured here so they aren't lost. None block v1.
+
+### 24.1 Keep-warm pinger (Render free-tier cold start)
+Render's free tier sleeps after ~15 min idle; the first connection then takes tens of seconds (the client already shows a "waking server" state). Mitigate by pinging `/health` on an interval so the service stays warm:
+- **Option A (recommended):** an external uptime monitor (e.g. UptimeRobot free) or a **GitHub Actions scheduled workflow** hitting `https://wizarden-server.onrender.com/health` every ~14 min.
+- **Free-hours budget:** a single always-warm free web service ≈ 720 h/month, within Render's 750 h free pool — but to stay safe, only ping during likely play hours (e.g. 10:00–01:00) rather than 24/7.
+- **Do NOT** add a server-side `setInterval` self-ping — it doesn't prevent Render from sleeping an idle instance and burns hours.
+- A heavier alternative (not recommended for a friends game): snapshot live `GameState` to Redis (now available) so an in-progress game survives a restart.
+
+### 24.2 PWA raster icons + social preview image
+The web manifest currently ships a single scalable **SVG** icon (`purpose: "any maskable"`, `sizes: "any"`), which Chrome/Android accept for install. Still missing for full coverage:
+- **PNG icons 192 / 512 / 180** — iOS "Add to Home Screen" needs a PNG `apple-touch-icon` (180×180); some stores/checks want 192 + 512 PNG.
+- **`og-image.png` (1200×630)** — a raster Open Graph image so shared room links render a proper preview card (SVG OG images don't render on most scrapers).
+- **How:** a one-off build script rasterising the existing `icon.svg` with `sharp` or `@resvg/resvg-js` (both add a native build dep) — or an online SVG→PNG converter. Keep all art original (§22 / `ASSETS.md`).
+- Optional: a minimal app-shell **service worker** for faster repeat loads (do not cache game traffic).

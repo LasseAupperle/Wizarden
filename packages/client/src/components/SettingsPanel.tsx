@@ -5,7 +5,15 @@ import { useT } from '../lib/i18n.js';
 import { applyAnimations, applyLanguage, applyTheme } from '../lib/theme.js';
 import { cn } from '../lib/cn.js';
 
-function Toggle({ on, onChange, label }: { on: boolean; onChange: (v: boolean) => void; label: string }) {
+function Toggle({
+  on,
+  onChange,
+  label,
+}: {
+  on: boolean;
+  onChange: (v: boolean) => void;
+  label: string;
+}) {
   return (
     <button
       role="switch"
@@ -39,7 +47,11 @@ function Segmented<T extends string>({
   label: string;
 }) {
   return (
-    <div role="radiogroup" aria-label={label} className="flex gap-1 rounded-ui border border-line bg-elevated p-1">
+    <div
+      role="radiogroup"
+      aria-label={label}
+      className="flex gap-1 rounded-ui border border-line bg-elevated p-1"
+    >
       {options.map((o) => (
         <button
           key={o.value}

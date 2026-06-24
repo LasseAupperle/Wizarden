@@ -22,13 +22,17 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
         'Set it to the deployed client origin (e.g. https://wizarden.netlify.app) for CORS.',
     );
   } else if (!/^https?:\/\//.test(clientOrigin)) {
-    console.error(`[wizarden] FATAL: CLIENT_ORIGIN must start with http:// or https:// (got "${clientOrigin}")`);
+    console.error(
+      `[wizarden] FATAL: CLIENT_ORIGIN must start with http:// or https:// (got "${clientOrigin}")`,
+    );
     process.exit(1);
   }
 
   const redisUrl = env.REDIS_URL?.trim() || undefined;
   if (redisUrl && !/^rediss?:\/\//.test(redisUrl)) {
-    console.error(`[wizarden] FATAL: REDIS_URL must start with redis:// or rediss:// (got "${redisUrl}")`);
+    console.error(
+      `[wizarden] FATAL: REDIS_URL must start with redis:// or rediss:// (got "${redisUrl}")`,
+    );
     process.exit(1);
   }
 

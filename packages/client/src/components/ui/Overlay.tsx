@@ -15,7 +15,13 @@ const FOCUSABLE =
   'a[href],button:not([disabled]),textarea,input,select,[tabindex]:not([tabindex="-1"])';
 
 /** Accessible overlay base: focus trap, Escape + backdrop close, focus restore. */
-export function Overlay({ open, onClose, children, placement = 'center', labelledBy }: OverlayProps) {
+export function Overlay({
+  open,
+  onClose,
+  children,
+  placement = 'center',
+  labelledBy,
+}: OverlayProps) {
   const ref = useRef<HTMLDivElement>(null);
   const restoreRef = useRef<HTMLElement | null>(null);
 
@@ -60,9 +66,7 @@ export function Overlay({ open, onClose, children, placement = 'center', labelle
     <div
       className={cn(
         'fixed inset-0 z-50 flex bg-black/60 backdrop-blur-sm',
-        placement === 'center'
-          ? 'items-center justify-center p-4'
-          : 'items-end justify-center',
+        placement === 'center' ? 'items-center justify-center p-4' : 'items-end justify-center',
         'pt-[env(safe-area-inset-top)]',
       )}
       onMouseDown={(e) => {

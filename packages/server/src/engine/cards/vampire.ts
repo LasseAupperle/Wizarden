@@ -6,6 +6,7 @@
 // current trump card so the copy is stable for the rest of the trick.)
 
 import { isSpecial } from '@wizarden/shared';
+import { getBehavior } from './registry.js';
 import type { CardBehavior, Effective } from './types.js';
 
 function copiedIdentity(ctx: Parameters<CardBehavior['identity']>[1]): Effective {
@@ -24,16 +25,29 @@ export const vampire: CardBehavior = {
     if (eff.kind === 'suited') return { type: 'followSuit', suit: eff.suit };
     return { type: 'asJester' };
   },
-  onPlay: (ctx, _play) => {
+  onPlay: (ctx, play) => {
     const tc = ctx.round.trumpCard;
     if (!tc || !isSpecial(tc, 'werewolf')) return;
     // Werewolf was the flipped card: flip a fresh trump card for the rest of the round.
     const fresh = ctx.round.pile.shift();
     if (!fresh) return;
     ctx.round.trumpCard = fresh;
-    if (fresh.kind === 'number') ctx.round.trumpSuit = fresh.suit;
-    else if (fresh.kind === 'jester') ctx.round.trumpSuit = null;
-    // (A fresh Wizard/special would prompt a trump choice; out of scope for v1 —
-    //  the existing trumpSuit carries over, which is safe.)
+
+    if (fresh.kind === 'number') {
+      ctx.round.trumpSuit = fresh.suit;
+    } else if (fresh.kind === 'jester') {
+      ctx.round.trumpSuit = null;
+    } else {
+      // Wizard or a special: a Wizard (or any special whose flip is chooseTrump)
+      // lets the Vampire's player choose the new trump colour; the round code
+      // pauses the trick on this decision and resumes it once resolved.
+      const choose =
+        fresh.kind === 'wizard' || getBehavior(fresh.special).onTrumpFlip().type === 'chooseTrump';
+      if (choose) {
+        ctx.raiseDecision({ kind: 'chooseTrump', seat: play.seat });
+      } else {
+        ctx.round.trumpSuit = null; // fairy/bomb/witch flipped => no trump
+      }
+    }
   },
 };

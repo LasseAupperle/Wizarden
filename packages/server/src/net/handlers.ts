@@ -22,6 +22,7 @@ import type { ResolvePayload } from '../engine/game.js';
 import { broadcastRoom, projectFor } from './broadcast.js';
 import { BadPayload, cleanName, parse } from './validate.js';
 import { SocketLimiter } from './rateLimit.js';
+import { logger } from '../logger.js';
 
 const LEADERBOARD_TOP = 5;
 
@@ -68,7 +69,7 @@ export function registerSocketHandlers(io: Io, socket: Sock, deps: HandlerDeps):
         if (e instanceof BadPayload) {
           emitError(socket, ErrorCodes.malformedPayload, 'malformed request');
         } else {
-          console.error('[wizarden] handler error:', e);
+          logger.error({ err: e, event }, 'handler error');
           emitError(socket, ErrorCodes.serverError, 'something went wrong');
         }
       }
@@ -77,7 +78,8 @@ export function registerSocketHandlers(io: Io, socket: Sock, deps: HandlerDeps):
 
   const withRoom = (fn: (room: Room, seat: number) => void): void => {
     const ctx = socket.data as SocketCtx;
-    if (!ctx?.roomCode || ctx.seat === undefined) return emitError(socket, ErrorCodes.badRequest, 'not in a room');
+    if (!ctx?.roomCode || ctx.seat === undefined)
+      return emitError(socket, ErrorCodes.badRequest, 'not in a room');
     const room = roomManager.get(ctx.roomCode);
     if (!room) return emitError(socket, ErrorCodes.sessionGone, 'room no longer exists');
     fn(room, ctx.seat);
@@ -111,7 +113,8 @@ export function registerSocketHandlers(io: Io, socket: Sock, deps: HandlerDeps):
     const room = roomManager.get(code);
     if (!room) return emitError(socket, ErrorCodes.roomNotFound, 'room not found');
     if (room.started) return emitError(socket, ErrorCodes.gameInProgress, 'game already started');
-    if (room.players.length >= MAX_PLAYERS) return emitError(socket, ErrorCodes.roomFull, 'room is full');
+    if (room.players.length >= MAX_PLAYERS)
+      return emitError(socket, ErrorCodes.roomFull, 'room is full');
     bindRoom(room);
     const player = room.addPlayer(clean, { socketId: socket.id });
     const session = sessions.create(room.code, player.seat);
@@ -150,7 +153,11 @@ export function registerSocketHandlers(io: Io, socket: Sock, deps: HandlerDeps):
     room.markReconnected(player.seat, socket.id);
     socket.data = { roomCode: room.code, seat: player.seat } satisfies SocketCtx;
     socket.join(room.code);
-    socket.emit(ServerEvents.roomJoined, { code: room.code, token, state: projectFor(room, player.seat) });
+    socket.emit(ServerEvents.roomJoined, {
+      code: room.code,
+      token,
+      state: projectFor(room, player.seat),
+    });
     io.to(room.code).emit(ServerEvents.gameResumed, { seat: player.seat, name: player.name });
     broadcastRoom(io, room);
   });
@@ -267,7 +274,8 @@ export function registerSocketHandlers(io: Io, socket: Sock, deps: HandlerDeps):
   on(ClientEvents.hostRemovePlayer, (raw) => {
     const { seat } = parse.seat(raw);
     withRoom((room, hostSeat) => {
-      if (room.playerBySeat(hostSeat)?.isHost !== true) return emitError(socket, ErrorCodes.notHost, 'host only');
+      if (room.playerBySeat(hostSeat)?.isHost !== true)
+        return emitError(socket, ErrorCodes.notHost, 'host only');
       departSeat(room, seat);
     });
   });

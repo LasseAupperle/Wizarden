@@ -22,7 +22,17 @@ describe('SpecialCardPicker', () => {
 describe('HowToPlay reference', () => {
   it('lists all nine special cards', () => {
     render(<HowToPlay />);
-    for (const name of ['Dragon', 'Fairy', 'Bomb', 'Werewolf', 'Juggler', 'Cloud', 'Witch', 'Vampire', 'Shapeshifter']) {
+    for (const name of [
+      'Dragon',
+      'Fairy',
+      'Bomb',
+      'Werewolf',
+      'Juggler',
+      'Cloud',
+      'Witch',
+      'Vampire',
+      'Shapeshifter',
+    ]) {
       expect(screen.getAllByText(new RegExp(name)).length).toBeGreaterThan(0);
     }
   });

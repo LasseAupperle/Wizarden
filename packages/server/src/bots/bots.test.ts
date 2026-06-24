@@ -8,13 +8,26 @@ import { InMemoryLeaderboard } from '../rooms/leaderboard.js';
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 const ALL_SPECIALS: SpecialType[] = [
-  'dragon', 'fairy', 'bomb', 'werewolf', 'juggler', 'cloud', 'witch', 'vampire', 'shapeshifter',
+  'dragon',
+  'fairy',
+  'bomb',
+  'werewolf',
+  'juggler',
+  'cloud',
+  'witch',
+  'vampire',
+  'shapeshifter',
 ];
 
 describe('Phase 6 — bots (debug only)', () => {
   it('an all-bot game with every special runs to gameOver (no illegal moves)', async () => {
     const leaderboard = new InMemoryLeaderboard();
-    const room = new Room('BOTS', { enableDebug: true, botDelayMs: 0, roundSummaryMs: 0, leaderboard });
+    const room = new Room('BOTS', {
+      enableDebug: true,
+      botDelayMs: 0,
+      roundSummaryMs: 0,
+      leaderboard,
+    });
     room.selectedSpecials = ALL_SPECIALS;
     for (let i = 0; i < 4; i++) room.addPlayer(`Bot${i}`, { isBot: true });
 
@@ -78,7 +91,9 @@ describe('Phase 6 — bots (debug only)', () => {
       await sleep(25);
 
       const mySeat = state!.yourSeat;
-      const ledSuit = (trick: ClientGameState['currentTrick']): { suit: string | null; freed: boolean } => {
+      const ledSuit = (
+        trick: ClientGameState['currentTrick'],
+      ): { suit: string | null; freed: boolean } => {
         for (const p of trick) {
           if (p.card.kind === 'wizard') return { suit: null, freed: true };
           if (p.card.kind === 'number') return { suit: p.card.suit, freed: false };
@@ -88,14 +103,16 @@ describe('Phase 6 — bots (debug only)', () => {
       const pickCard = (s: ClientGameState): string => {
         const { suit, freed } = ledSuit(s.currentTrick);
         if (suit === null || freed) return s.yourHand[0]!.id;
-        return (s.yourHand.find((c) => c.kind === 'number' && c.suit === suit) ?? s.yourHand[0]!).id;
+        return (s.yourHand.find((c) => c.kind === 'number' && c.suit === suit) ?? s.yourHand[0]!)
+          .id;
       };
 
       let guard = 0;
       while (state!.phase !== 'gameOver') {
         if (++guard > 30000) throw new Error('human+bots game did not finish');
         const s = state!;
-        const myTurn = (s.phase === 'bidding' || s.phase === 'trick') && s.currentTurnSeat === mySeat;
+        const myTurn =
+          (s.phase === 'bidding' || s.phase === 'trick') && s.currentTurnSeat === mySeat;
         if (s.phase === 'roundEnd') {
           await sleep(12);
         } else if (myTurn && s.phase === 'bidding') {

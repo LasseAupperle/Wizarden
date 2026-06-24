@@ -7,7 +7,8 @@ import { MAX_PLAYERS, SPECIAL_TYPES, type GameMode, type SpecialType } from '@wi
 export class BadPayload extends Error {}
 
 function asObj(v: unknown): Record<string, unknown> {
-  if (typeof v !== 'object' || v === null || Array.isArray(v)) throw new BadPayload('expected object');
+  if (typeof v !== 'object' || v === null || Array.isArray(v))
+    throw new BadPayload('expected object');
   return v as Record<string, unknown>;
 }
 function asStr(v: unknown, max: number): string {

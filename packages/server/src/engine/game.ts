@@ -36,10 +36,11 @@ import {
   applyChosenTrump,
   beginBidding,
   dealAndStartRound,
+  nextActiveAfter,
   recordBidAndAdvance,
   recordPlayAndAdvance,
 } from './round.js';
-import { continueResolution, isLegalPlay, makeCtx } from './resolve.js';
+import { continueResolution, isLegalPlay, makeCtx, resolveTrick } from './resolve.js';
 
 export interface EngineError {
   code: ErrorCode;
@@ -141,10 +142,16 @@ function normalizePlayDecision(
   decision: PlayDecision,
 ): { ok: true; decision: PlayDecision } | { ok: false; error: EngineError } {
   if (isSpecial(card, 'shapeshifter')) {
-    if (decision.type !== 'shapeshifter' || (decision.as !== 'wizard' && decision.as !== 'jester')) {
+    if (
+      decision.type !== 'shapeshifter' ||
+      (decision.as !== 'wizard' && decision.as !== 'jester')
+    ) {
       return {
         ok: false,
-        error: { code: ErrorCodes.invalidDecision, message: 'shapeshifter must declare wizard|jester' },
+        error: {
+          code: ErrorCodes.invalidDecision,
+          message: 'shapeshifter must declare wizard|jester',
+        },
       };
     }
     return { ok: true, decision };
@@ -200,7 +207,11 @@ export type ResolvePayload =
   | { cardId: string };
 
 /** Resolve the outstanding decision owned by `seat`, dispatching on its kind. */
-export function applyResolve(state: GameState, seat: number, payload: ResolvePayload): ActionResult {
+export function applyResolve(
+  state: GameState,
+  seat: number,
+  payload: ResolvePayload,
+): ActionResult {
   const decision = state.decisions[seat];
   if (!decision) return fail(ErrorCodes.invalidDecision, 'no outstanding decision for this seat');
 
@@ -231,12 +242,26 @@ function resolveChooseTrump(state: GameState, seat: number, payload: ResolvePayl
   }
   const s = clone(state);
   delete s.decisions[seat];
-  applyChosenTrump(s, suit);
+  const round = s.round;
+  if (round?.resumeTrickAfterTrump) {
+    // Mid-trick Vampire fresh-flip choice: set trump, then resume the paused trick.
+    round.trumpSuit = suit;
+    round.resumeTrickAfterTrump = false;
+    if (round.currentTrick.length === activeCount(s)) {
+      resolveTrick(s);
+    } else {
+      s.phase = 'trick';
+      s.currentTurnSeat = nextActiveAfter(s, seat);
+    }
+  } else {
+    applyChosenTrump(s, suit); // pre-bid trump choice -> begin bidding
+  }
   return { ok: true, state: s };
 }
 
 function resolveWerewolf(state: GameState, seat: number, payload: ResolvePayload): ActionResult {
-  if (!('suit' in payload)) return fail(ErrorCodes.invalidDecision, 'werewolfSwap requires suit|null');
+  if (!('suit' in payload))
+    return fail(ErrorCodes.invalidDecision, 'werewolfSwap requires suit|null');
   const suit = payload.suit;
   if (suit !== null && !SUITS.includes(suit)) {
     return fail(ErrorCodes.invalidDecision, 'invalid trump suit');
@@ -311,7 +336,8 @@ function resolveWitch(state: GameState, seat: number, payload: ResolvePayload): 
 }
 
 function resolveJuggler(state: GameState, seat: number, payload: ResolvePayload): ActionResult {
-  if (!('cardId' in payload)) return fail(ErrorCodes.invalidDecision, 'jugglerPass requires cardId');
+  if (!('cardId' in payload))
+    return fail(ErrorCodes.invalidDecision, 'jugglerPass requires cardId');
   const holder = playerAt(state, seat)!;
   if (!holder.hand.some((c) => c.id === payload.cardId)) {
     return fail(ErrorCodes.invalidDecision, 'card not in hand');

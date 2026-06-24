@@ -11,6 +11,9 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
+    "@fontsource/cinzel": "^5.1.0",
+    "@fontsource/outfit": "^5.1.0",
+    "@sentry/react": "^8.47.0",
     "@wizarden/shared": "workspace:*",
     "lucide-react": "^0.469.0",
     "react": "^19.0.0",

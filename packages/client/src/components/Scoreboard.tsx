@@ -38,7 +38,10 @@ export function Scoreboard({
                   return (
                     <td
                       key={s}
-                      className={cn('px-2 py-1 text-right', (r?.delta ?? 0) >= 0 ? 'text-positive' : 'text-negative')}
+                      className={cn(
+                        'px-2 py-1 text-right',
+                        (r?.delta ?? 0) >= 0 ? 'text-positive' : 'text-negative',
+                      )}
                     >
                       {r ? (r.delta >= 0 ? `+${r.delta}` : r.delta) : '·'}
                     </td>

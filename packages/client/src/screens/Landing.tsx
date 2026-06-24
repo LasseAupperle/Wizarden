@@ -82,7 +82,10 @@ export function Landing() {
           </Button>
         </div>
 
-        <button className="text-sm text-muted underline-offset-2 hover:underline" onClick={() => setHowto(true)}>
+        <button
+          className="text-sm text-muted underline-offset-2 hover:underline"
+          onClick={() => setHowto(true)}
+        >
           {t('howToPlay')}
         </button>
       </main>

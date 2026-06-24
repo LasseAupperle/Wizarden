@@ -1,5 +1,11 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { SUITS, type Card, type ClientGameState, type PendingDecision, type Suit } from '@wizarden/shared';
+import {
+  SUITS,
+  type Card,
+  type ClientGameState,
+  type PendingDecision,
+  type Suit,
+} from '@wizarden/shared';
 import { TopBar } from '../components/TopBar.js';
 import { Button } from '../components/ui/Button.js';
 import { Badge } from '../components/ui/Badge.js';
@@ -80,7 +86,15 @@ export function Game({ game }: { game: ClientGameState }) {
     if (yourTurnToPlay) return 'Your turn to play';
     if (game.phase === 'roundEnd') return `Round ${game.roundNumber} scored`;
     return '';
-  }, [game.paused, game.pausedForName, decision, yourTurnToBid, yourTurnToPlay, game.phase, game.roundNumber]);
+  }, [
+    game.paused,
+    game.pausedForName,
+    decision,
+    yourTurnToBid,
+    yourTurnToPlay,
+    game.phase,
+    game.roundNumber,
+  ]);
 
   const play = (card: Card) => {
     if (card.kind === 'special' && card.special === 'shapeshifter') return setAnnounceCard(card);
@@ -130,7 +144,9 @@ export function Game({ game }: { game: ClientGameState }) {
             )}
           >
             <div className="flex items-center gap-1 font-semibold text-ink">
-              <span className={`h-1.5 w-1.5 rounded-full ${p.connected ? 'bg-positive' : 'bg-muted'}`} />
+              <span
+                className={`h-1.5 w-1.5 rounded-full ${p.connected ? 'bg-positive' : 'bg-muted'}`}
+              />
               {p.name}
               {!p.inPlay && <span className="text-muted">(left)</span>}
               {game.awaitingDecisionSeats.includes(p.seat) && <span aria-label="deciding">⏳</span>}
@@ -149,7 +165,9 @@ export function Game({ game }: { game: ClientGameState }) {
             <div className="mb-1 font-display text-ink">Round {game.roundNumber}</div>
             {game.lastRoundResult.map((r) => (
               <div key={r.seat} className="text-sm">
-                <span className="text-muted">{game.players.find((p) => p.seat === r.seat)?.name}: </span>
+                <span className="text-muted">
+                  {game.players.find((p) => p.seat === r.seat)?.name}:{' '}
+                </span>
                 <span className={r.delta >= 0 ? 'text-positive' : 'text-negative'}>
                   {r.delta >= 0 ? `+${r.delta}` : r.delta}
                 </span>
@@ -215,33 +233,41 @@ export function Game({ game }: { game: ClientGameState }) {
       </Sheet>
 
       {/* announce / declare sheet */}
-      <Sheet open={!!announceCard} onClose={() => setAnnounceCard(null)} title={announceCard ? cardLabel(announceCard) : ''}>
-        {announceCard && announceCard.kind === 'special' && announceCard.special === 'shapeshifter' && (
-          <div className="flex gap-2">
-            {(['wizard', 'jester'] as const).map((as) => (
-              <Button
-                key={as}
-                fullWidth
-                onClick={() => {
-                  playPlaceCard();
-                  intents.play(announceCard.id, { type: 'shapeshifter', as });
-                  setAnnounceCard(null);
-                }}
-              >
-                {as}
-              </Button>
-            ))}
-          </div>
-        )}
-        {announceCard && announceCard.kind === 'special' && announceCard.special !== 'shapeshifter' && (
-          <SuitRow
-            onPick={(suit) => {
-              playPlaceCard();
-              intents.play(announceCard.id, { type: 'announceSuit', suit });
-              setAnnounceCard(null);
-            }}
-          />
-        )}
+      <Sheet
+        open={!!announceCard}
+        onClose={() => setAnnounceCard(null)}
+        title={announceCard ? cardLabel(announceCard) : ''}
+      >
+        {announceCard &&
+          announceCard.kind === 'special' &&
+          announceCard.special === 'shapeshifter' && (
+            <div className="flex gap-2">
+              {(['wizard', 'jester'] as const).map((as) => (
+                <Button
+                  key={as}
+                  fullWidth
+                  onClick={() => {
+                    playPlaceCard();
+                    intents.play(announceCard.id, { type: 'shapeshifter', as });
+                    setAnnounceCard(null);
+                  }}
+                >
+                  {as}
+                </Button>
+              ))}
+            </div>
+          )}
+        {announceCard &&
+          announceCard.kind === 'special' &&
+          announceCard.special !== 'shapeshifter' && (
+            <SuitRow
+              onPick={(suit) => {
+                playPlaceCard();
+                intents.play(announceCard.id, { type: 'announceSuit', suit });
+                setAnnounceCard(null);
+              }}
+            />
+          )}
       </Sheet>
 
       <Scoreboard game={game} open={scoreOpen} onClose={() => setScoreOpen(false)} />
@@ -292,7 +318,11 @@ function DecisionPrompt({
         <p className="mb-2 text-muted">Adjust your bid by ±1.</p>
         <div className="flex gap-2">
           <Button onClick={() => intents.resolve({ delta: 1 })}>+1</Button>
-          <Button variant="secondary" disabled={bid0} onClick={() => intents.resolve({ delta: -1 })}>
+          <Button
+            variant="secondary"
+            disabled={bid0}
+            onClick={() => intents.resolve({ delta: -1 })}
+          >
             −1
           </Button>
         </div>
@@ -305,7 +335,12 @@ function DecisionPrompt({
         <p className="mb-2 text-muted">Pass one card clockwise.</p>
         <div className="flex flex-wrap gap-1.5">
           {game.yourHand.map((c) => (
-            <CardView key={c.id} card={c} size="sm" onClick={() => intents.resolve({ cardId: c.id })} />
+            <CardView
+              key={c.id}
+              card={c}
+              size="sm"
+              onClick={() => intents.resolve({ cardId: c.id })}
+            />
           ))}
         </div>
       </>
@@ -315,11 +350,18 @@ function DecisionPrompt({
   const takeCards = game.currentTrick.filter((p) => decision.trickCardIds.includes(p.card.id));
   return (
     <>
-      <p className="mb-2 text-muted">{witchTake ? 'Give one of your cards.' : 'Take a card from the trick.'}</p>
+      <p className="mb-2 text-muted">
+        {witchTake ? 'Give one of your cards.' : 'Take a card from the trick.'}
+      </p>
       {!witchTake ? (
         <div className="flex flex-wrap gap-1.5">
           {takeCards.map((p) => (
-            <CardView key={p.card.id} card={p.card} size="sm" onClick={() => setWitchTake(p.card.id)} />
+            <CardView
+              key={p.card.id}
+              card={p.card}
+              size="sm"
+              onClick={() => setWitchTake(p.card.id)}
+            />
           ))}
         </div>
       ) : (

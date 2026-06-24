@@ -30,7 +30,8 @@ export function makeCtx(state: GameState): EngineCtx {
     voided: false,
     identityOf: (play) => identityOfPlay(play, ctx),
     identityOfCard: (card) => identityOfCard(card, ctx),
-    activeSeatsWithCards: () => activeSeats(state).filter((s) => playerAt(state, s)!.hand.length > 0),
+    activeSeatsWithCards: () =>
+      activeSeats(state).filter((s) => playerAt(state, s)!.hand.length > 0),
     raiseDecision: (d) => {
       state.decisions[d.seat] = d;
     },

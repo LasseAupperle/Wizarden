@@ -8,7 +8,9 @@ import { CLOUD_RANK, type Suit, type TrickPlay } from '@wizarden/shared';
 import type { CardBehavior, EngineCtx, ResolveStage } from './types.js';
 
 function announced(play: TrickPlay, ctx: EngineCtx): Suit {
-  return play.decision.type === 'announceSuit' ? play.decision.suit : (ctx.round.trumpSuit ?? 'red');
+  return play.decision.type === 'announceSuit'
+    ? play.decision.suit
+    : (ctx.round.trumpSuit ?? 'red');
 }
 
 export const cloud: CardBehavior = {

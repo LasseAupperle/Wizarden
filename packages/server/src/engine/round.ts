@@ -160,6 +160,15 @@ export function recordPlayAndAdvance(
     getBehavior(card.special).onPlay?.(makeCtx(state), play);
   }
 
+  // A play-time decision (Vampire's fresh-flip Wizard => choose trump) pauses the
+  // trick; it resumes from this seat once the choice is resolved (see game.ts).
+  if (Object.keys(state.decisions).length > 0) {
+    state.phase = 'trumpDecision';
+    state.currentTurnSeat = null;
+    round.resumeTrickAfterTrump = true;
+    return;
+  }
+
   if (round.currentTrick.length === activeCount(state)) {
     resolveTrick(state);
   } else {

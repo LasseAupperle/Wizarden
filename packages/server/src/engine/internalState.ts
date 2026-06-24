@@ -45,6 +45,9 @@ export interface RoundState {
   leadSeat: number; // seat that leads the current trick
   currentTrick: TrickPlay[];
   resolution?: TrickResolution; // present only while a completed trick is resolving
+  // Set when a Vampire's fresh-flip (copying the Werewolf) reveals a Wizard/
+  // chooseTrump card mid-play: the trick resumes after that trump choice.
+  resumeTrickAfterTrump?: boolean;
 }
 
 export interface GameState {

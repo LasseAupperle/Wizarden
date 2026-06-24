@@ -19,7 +19,15 @@ import { awaitingDecisionSeats, playerAt, type GameState } from './internalState
 import { isLegalPlay, makeCtx } from './resolve.js';
 
 const ALL_SPECIALS: SpecialType[] = [
-  'dragon', 'fairy', 'bomb', 'werewolf', 'juggler', 'cloud', 'witch', 'vampire', 'shapeshifter',
+  'dragon',
+  'fairy',
+  'bomb',
+  'werewolf',
+  'juggler',
+  'cloud',
+  'witch',
+  'vampire',
+  'shapeshifter',
 ];
 
 const GAMES = Number(process.env.WIZARDEN_FUZZ_GAMES ?? 120);
@@ -114,7 +122,10 @@ function step(s: GameState, rnd: () => number, seed: number): GameState {
       }
       // witchSwap
       return unwrap(
-        applyResolve(s, seat, { takeId: pick(d.trickCardIds), giveId: pick(playerAt(s, seat)!.hand).id }),
+        applyResolve(s, seat, {
+          takeId: pick(d.trickCardIds),
+          giveId: pick(playerAt(s, seat)!.hand).id,
+        }),
         seed,
       );
     }

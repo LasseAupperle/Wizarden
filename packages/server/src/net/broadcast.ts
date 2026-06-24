@@ -112,7 +112,11 @@ export function broadcastRoom(io: Io, room: Room): void {
   const g = room.game;
   if (!g) return;
 
-  if (g.phase === 'roundEnd' && g.lastRoundResult && room.flags.lastResultRound !== g.round?.roundNumber) {
+  if (
+    g.phase === 'roundEnd' &&
+    g.lastRoundResult &&
+    room.flags.lastResultRound !== g.round?.roundNumber
+  ) {
     room.flags.lastResultRound = g.round?.roundNumber ?? -1;
     io.to(room.code).emit(ServerEvents.roundResult, g.lastRoundResult);
   }

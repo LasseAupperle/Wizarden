@@ -1,10 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  ROUNDS_BY_PLAYER_COUNT,
-  SUITS,
-  type Card,
-  type SpecialType,
-} from '@wizarden/shared';
+import { ROUNDS_BY_PLAYER_COUNT, SUITS, type Card, type SpecialType } from '@wizarden/shared';
 import { buildBaseDeck, buildDeck, dealRound, validateSpecials } from './deck.js';
 import { createRng } from './rng.js';
 

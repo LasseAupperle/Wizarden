@@ -7,6 +7,7 @@
 import { Redis } from 'ioredis';
 import type { LeaderboardEntry } from '@wizarden/shared';
 import { InMemoryLeaderboard, type LeaderboardStore } from './leaderboard.js';
+import { logger } from '../logger.js';
 
 const KEY = 'wizarden:leaderboard:v1';
 
@@ -30,7 +31,7 @@ export class RedisLeaderboard implements LeaderboardStore {
       maxRetriesPerRequest: 2,
       enableOfflineQueue: true,
     });
-    this.redis.on('error', (e: Error) => console.error('[leaderboard] redis error:', e.message));
+    this.redis.on('error', (e: Error) => logger.error({ err: e.message }, 'redis error'));
     this.ready = this.hydrate();
   }
 
@@ -42,7 +43,7 @@ export class RedisLeaderboard implements LeaderboardStore {
         if (Array.isArray(entries)) this.mirror.load(entries);
       }
     } catch (e) {
-      console.error('[leaderboard] hydrate failed (starting empty):', (e as Error).message);
+      logger.error({ err: (e as Error).message }, 'leaderboard hydrate failed (starting empty)');
     }
   }
 
@@ -56,7 +57,7 @@ export class RedisLeaderboard implements LeaderboardStore {
       await this.ready; // don't overwrite before the initial hydrate completes
       await this.redis.set(KEY, JSON.stringify(this.mirror.all()));
     } catch (e) {
-      console.error('[leaderboard] persist failed:', (e as Error).message);
+      logger.error({ err: (e as Error).message }, 'leaderboard persist failed');
     }
   }
 

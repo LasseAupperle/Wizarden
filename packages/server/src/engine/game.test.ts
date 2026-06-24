@@ -15,7 +15,12 @@ import { isLegalPlay } from './trick.js';
 
 // ---- test helpers ----
 
-const num = (suit: Suit, value: number): Card => ({ kind: 'number', id: `n-${suit}-${value}`, suit, value });
+const num = (suit: Suit, value: number): Card => ({
+  kind: 'number',
+  id: `n-${suit}-${value}`,
+  suit,
+  value,
+});
 const wiz = (i: number): Card => ({ kind: 'wizard', id: `wizard-${i}` });
 
 function ok(r: ActionResult): GameState {

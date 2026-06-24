@@ -19,8 +19,10 @@ const randSuit = (): Suit => pick(SUITS);
 
 function decisionForCard(card: Card): PlayDecision {
   if (card.kind !== 'special') return { type: 'none' };
-  if (card.special === 'shapeshifter') return { type: 'shapeshifter', as: pick(['wizard', 'jester'] as const) };
-  if (card.special === 'juggler' || card.special === 'cloud') return { type: 'announceSuit', suit: randSuit() };
+  if (card.special === 'shapeshifter')
+    return { type: 'shapeshifter', as: pick(['wizard', 'jester'] as const) };
+  if (card.special === 'juggler' || card.special === 'cloud')
+    return { type: 'announceSuit', suit: randSuit() };
   return { type: 'none' };
 }
 

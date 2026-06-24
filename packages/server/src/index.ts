@@ -1,6 +1,7 @@
 import { createServer, type Server as HttpServer } from 'node:http';
 import { pathToFileURL } from 'node:url';
 import express, { type Express } from 'express';
+import helmet from 'helmet';
 import { Server } from 'socket.io';
 import type { ClientToServerEvents, ServerToClientEvents } from '@wizarden/shared';
 import { RoomManager } from './rooms/roomManager.js';
@@ -9,6 +10,11 @@ import { InMemoryLeaderboard, type LeaderboardStore } from './rooms/leaderboard.
 import { RedisLeaderboard } from './rooms/redisLeaderboard.js';
 import { registerSocketHandlers } from './net/handlers.js';
 import { loadConfig } from './config.js';
+import { logger } from './logger.js';
+
+// Cap inbound socket payloads well above any real intent but far below abuse
+// (default is 1 MB). Our largest payload is a tiny JSON object.
+const MAX_SOCKET_PAYLOAD_BYTES = 16 * 1024;
 
 export interface WizardenServerOptions {
   clientOrigin?: string;
@@ -39,10 +45,12 @@ export function createWizardenServer(options: WizardenServerOptions = {}): Wizar
   const leaderboard: LeaderboardStore =
     options.leaderboard ?? (redisUrl ? new RedisLeaderboard(redisUrl) : new InMemoryLeaderboard());
   if (redisUrl && !options.leaderboard) {
-    console.log('[wizarden] leaderboard: persistent (Redis)');
+    logger.info('leaderboard: persistent (Redis)');
   }
 
   const app = express();
+  app.disable('x-powered-by');
+  app.use(helmet()); // security headers (§3)
   app.get('/health', (_req, res) => {
     res.json({ ok: true, name: 'wizarden-server', version: '0.1.0' });
   });
@@ -53,6 +61,7 @@ export function createWizardenServer(options: WizardenServerOptions = {}): Wizar
   const httpServer = createServer(app);
   const io = new Server<ClientToServerEvents, ServerToClientEvents>(httpServer, {
     cors: { origin: allowedOrigins, methods: ['GET', 'POST'] },
+    maxHttpBufferSize: MAX_SOCKET_PAYLOAD_BYTES,
   });
 
   const sessions = new SessionStore();
@@ -99,6 +108,6 @@ if (isMain) {
     redisUrl: config.redisUrl,
   });
   void server.listen(config.port).then((boundPort) => {
-    console.log(`[wizarden] server listening on :${boundPort} (debug=${config.enableDebug})`);
+    logger.info({ port: boundPort, debug: config.enableDebug }, 'server listening');
   });
 }

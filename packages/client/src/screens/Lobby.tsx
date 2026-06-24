@@ -72,7 +72,10 @@ export function Lobby({ game }: { game: ClientGameState }) {
                   {p.isBot && <Badge>BOT</Badge>}
                 </span>
                 {isHost && p.seat !== game.yourSeat && (
-                  <IconButton label={`Remove ${p.name}`} onClick={() => intents.removePlayer(p.seat)}>
+                  <IconButton
+                    label={`Remove ${p.name}`}
+                    onClick={() => intents.removePlayer(p.seat)}
+                  >
                     ✕
                   </IconButton>
                 )}
@@ -82,7 +85,9 @@ export function Lobby({ game }: { game: ClientGameState }) {
         </section>
 
         <section>
-          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted">{t('gameMode')}</h2>
+          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted">
+            {t('gameMode')}
+          </h2>
           <GameModePicker
             mode={game.gameMode}
             fullRounds={fullRoundsFor(count)}
@@ -92,11 +97,15 @@ export function Lobby({ game }: { game: ClientGameState }) {
         </section>
 
         <section>
-          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted">{t('specials')}</h2>
+          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted">
+            {t('specials')}
+          </h2>
           <SpecialCardPicker
             selected={game.selectedSpecials}
             disabled={!isHost}
-            onToggle={(type) => intents.configureSpecials(toggleSpecial(game.selectedSpecials, type))}
+            onToggle={(type) =>
+              intents.configureSpecials(toggleSpecial(game.selectedSpecials, type))
+            }
           />
         </section>
 

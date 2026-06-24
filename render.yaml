@@ -18,11 +18,11 @@ services:
     healthCheckPath: /health
     envVars:
       - key: NODE_VERSION
-        value: "22"
+        value: '22'
       - key: COREPACK_ENABLE_DOWNLOAD_PROMPT
-        value: "0"
+        value: '0'
       - key: ENABLE_DEBUG
-        value: "false"
+        value: 'false'
       - key: CLIENT_ORIGIN
         sync: false
       # Optional: Upstash Redis URL for a PERSISTENT leaderboard (survives restarts).

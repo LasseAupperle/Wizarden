@@ -22,7 +22,8 @@ export function GameOver({ game }: { game: ClientGameState }) {
             🏆
           </div>
           <h1 className="mt-2 font-display text-2xl text-ink">
-            {winners.length > 1 ? t('winners') : t('winner')}: {winners.map((w) => w.name).join(', ')}
+            {winners.length > 1 ? t('winners') : t('winner')}:{' '}
+            {winners.map((w) => w.name).join(', ')}
           </h1>
         </div>
 

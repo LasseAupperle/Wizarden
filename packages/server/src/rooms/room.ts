@@ -23,7 +23,11 @@ import {
   type ActionResult,
   type ResolvePayload,
 } from '../engine/game.js';
-import { awaitingDecisionSeats, playerAt as enginePlayerAt, type GameState } from '../engine/internalState.js';
+import {
+  awaitingDecisionSeats,
+  playerAt as enginePlayerAt,
+  type GameState,
+} from '../engine/internalState.js';
 import { validateSpecials } from '../engine/deck.js';
 import { decideBotMove } from '../bots/randomBot.js';
 import type { LeaderboardStore } from './leaderboard.js';
@@ -47,7 +51,10 @@ export interface RoomOptions {
 
 export type RoomResult = ActionResult | { ok: false; error: { code: ErrorCode; message: string } };
 
-const fail = (code: ErrorCode, message: string): { ok: false; error: { code: ErrorCode; message: string } } => ({
+const fail = (
+  code: ErrorCode,
+  message: string,
+): { ok: false; error: { code: ErrorCode; message: string } } => ({
   ok: false,
   error: { code, message },
 });
@@ -68,7 +75,12 @@ export class Room {
   onChange: () => void = () => {};
 
   /** Broadcast bookkeeping so round:result / game:over / pause fire once per transition. */
-  flags = { lastResultRound: -1, gameOverEmitted: false, paused: false, leaderboardRecorded: false };
+  flags = {
+    lastResultRound: -1,
+    gameOverEmitted: false,
+    paused: false,
+    leaderboardRecorded: false,
+  };
 
   private readonly roundSummaryMs: number;
   private readonly enableDebug: boolean;
@@ -172,13 +184,23 @@ export class Room {
     }
     this.game = createGame({
       roomCode: this.code,
-      players: this.players.map((p) => ({ seat: p.seat, name: p.name, isBot: p.isBot, isHost: p.isHost })),
+      players: this.players.map((p) => ({
+        seat: p.seat,
+        name: p.name,
+        isBot: p.isBot,
+        isHost: p.isHost,
+      })),
       selectedSpecials: this.selectedSpecials,
       gameMode: this.gameMode,
       seed: randomSeed(),
     });
     this.started = true;
-    this.flags = { lastResultRound: -1, gameOverEmitted: false, paused: false, leaderboardRecorded: false };
+    this.flags = {
+      lastResultRound: -1,
+      gameOverEmitted: false,
+      paused: false,
+      leaderboardRecorded: false,
+    };
     this.afterMutation();
     return { ok: true, state: this.game };
   }
@@ -200,7 +222,12 @@ export class Room {
     this.clearTimer();
     this.started = false;
     this.game = null;
-    this.flags = { lastResultRound: -1, gameOverEmitted: false, paused: false, leaderboardRecorded: false };
+    this.flags = {
+      lastResultRound: -1,
+      gameOverEmitted: false,
+      paused: false,
+      leaderboardRecorded: false,
+    };
     return { ok: true, state: {} as GameState };
   }
 

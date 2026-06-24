@@ -21,7 +21,12 @@ import { determineWinner, isLegalPlay, makeCtx } from './resolve.js';
 import { RESOLVE_STAGES, type Effective } from './cards/types.js';
 
 // ---- builders ----
-const num = (suit: Suit, value: number): Card => ({ kind: 'number', id: `n-${suit}-${value}`, suit, value });
+const num = (suit: Suit, value: number): Card => ({
+  kind: 'number',
+  id: `n-${suit}-${value}`,
+  suit,
+  value,
+});
 const wiz = (i: number): Card => ({ kind: 'wizard', id: `wizard-${i}` });
 const jes = (i: number): Card => ({ kind: 'jester', id: `jester-${i}` });
 const sp = (special: SpecialType): Card => ({ kind: 'special', id: `special-${special}`, special });
@@ -89,7 +94,11 @@ function trickState(o: TrickOpts): GameState {
 }
 
 /** A post-deal state (phase resolved by applyPreBidAndTrump) for trump-flip tests. */
-function postDeal(o: { hands: Card[][]; trumpCard: Card | null; startMarkerSeat?: number }): GameState {
+function postDeal(o: {
+  hands: Card[][];
+  trumpCard: Card | null;
+  startMarkerSeat?: number;
+}): GameState {
   const players = makePlayers(o.hands);
   const cards = o.hands[0]!.length;
   const state: GameState = {
@@ -138,19 +147,73 @@ const S = (suit: Suit, value: number): Effective => ({ kind: 'suited', suit, val
 
 describe('ranking: dragon / fairy / wizard', () => {
   it('Dragon beats a Wizard', () => {
-    expect(determineWinner([{ seat: 0, eff: W }, { seat: 1, eff: D }], 'red', 'red')).toBe(1);
+    expect(
+      determineWinner(
+        [
+          { seat: 0, eff: W },
+          { seat: 1, eff: D },
+        ],
+        'red',
+        'red',
+      ),
+    ).toBe(1);
   });
   it('Fairy beats Dragon when both present', () => {
-    expect(determineWinner([{ seat: 0, eff: D }, { seat: 1, eff: F }], 'red', 'red')).toBe(1);
+    expect(
+      determineWinner(
+        [
+          { seat: 0, eff: D },
+          { seat: 1, eff: F },
+        ],
+        'red',
+        'red',
+      ),
+    ).toBe(1);
   });
   it('Fairy is otherwise the lowest (loses to a number)', () => {
-    expect(determineWinner([{ seat: 0, eff: F }, { seat: 1, eff: S('red', 2) }], 'red', null)).toBe(1);
+    expect(
+      determineWinner(
+        [
+          { seat: 0, eff: F },
+          { seat: 1, eff: S('red', 2) },
+        ],
+        'red',
+        null,
+      ),
+    ).toBe(1);
   });
   it('Juggler 7.5 and Cloud 9.75 rank between numbers in their suit', () => {
     // red trump: 8 > juggler(7.5) > 7 ; 10 > cloud(9.75) > 9
-    expect(determineWinner([{ seat: 0, eff: S('red', 7.5) }, { seat: 1, eff: S('red', 8) }], 'red', 'red')).toBe(1);
-    expect(determineWinner([{ seat: 0, eff: S('red', 7.5) }, { seat: 1, eff: S('red', 7) }], 'red', 'red')).toBe(0);
-    expect(determineWinner([{ seat: 0, eff: S('red', 9.75) }, { seat: 1, eff: S('red', 10) }], 'red', 'red')).toBe(1);
+    expect(
+      determineWinner(
+        [
+          { seat: 0, eff: S('red', 7.5) },
+          { seat: 1, eff: S('red', 8) },
+        ],
+        'red',
+        'red',
+      ),
+    ).toBe(1);
+    expect(
+      determineWinner(
+        [
+          { seat: 0, eff: S('red', 7.5) },
+          { seat: 1, eff: S('red', 7) },
+        ],
+        'red',
+        'red',
+      ),
+    ).toBe(0);
+    expect(
+      determineWinner(
+        [
+          { seat: 0, eff: S('red', 9.75) },
+          { seat: 1, eff: S('red', 10) },
+        ],
+        'red',
+        'red',
+      ),
+    ).toBe(1);
   });
 });
 
@@ -322,7 +385,11 @@ describe('Cloud', () => {
 describe('Werewolf', () => {
   it('in hand => bidding blocked until the swap + trump choice resolves', () => {
     const s = postDeal({
-      hands: [[num('red', 1), num('red', 2)], [sp('werewolf'), num('blue', 2)], [num('green', 1), num('green', 2)]],
+      hands: [
+        [num('red', 1), num('red', 2)],
+        [sp('werewolf'), num('blue', 2)],
+        [num('green', 1), num('green', 2)],
+      ],
       trumpCard: num('yellow', 9),
     });
     expect(s.phase).toBe('preBid');
@@ -339,7 +406,10 @@ describe('Werewolf', () => {
   });
 
   it('flipped as the trump card => start-marker chooses trump', () => {
-    const s = postDeal({ hands: [[num('red', 1)], [num('blue', 1)], [num('green', 1)]], trumpCard: sp('werewolf') });
+    const s = postDeal({
+      hands: [[num('red', 1)], [num('blue', 1)], [num('green', 1)]],
+      trumpCard: sp('werewolf'),
+    });
     expect(s.phase).toBe('trumpDecision');
     expect(s.decisions[0]!.kind).toBe('chooseTrump');
   });
@@ -400,6 +470,32 @@ describe('Vampire', () => {
     expect(s.round!.trumpSuit).toBe('green');
     expect(s.round!.trumpCard!.id).toBe('n-green-9');
   });
+
+  it('Werewolf flip revealing a Wizard lets the Vampire player choose trump, then the trick resumes', () => {
+    let s = trickState({
+      hands: [
+        [sp('vampire'), num('red', 1)],
+        [num('blue', 2), num('blue', 3)],
+        [num('green', 2), num('green', 3)],
+      ],
+      trumpSuit: null,
+      trumpCard: sp('werewolf'),
+      pile: [wiz(2)],
+      leadSeat: 0,
+      specials: ['vampire', 'werewolf'],
+    });
+    // Vampire (seat 0) plays; fresh flip is a Wizard -> seat 0 must choose trump.
+    s = play(s, 'special-vampire');
+    expect(s.phase).toBe('trumpDecision');
+    expect(s.decisions[0]!.kind).toBe('chooseTrump');
+    expect(s.currentTurnSeat).toBeNull();
+
+    s = ok(applyResolve(s, 0, { suit: 'blue' }));
+    expect(s.round!.trumpSuit).toBe('blue');
+    // trick resumes from the next active seat
+    expect(s.phase).toBe('trick');
+    expect(s.currentTurnSeat).toBe(1);
+  });
 });
 
 // =====================================================================
@@ -407,27 +503,51 @@ describe('Vampire', () => {
 // =====================================================================
 
 describe('trump-on-flip mapping', () => {
-  const chooseTrumpSpecials: SpecialType[] = ['dragon', 'juggler', 'cloud', 'werewolf', 'vampire', 'shapeshifter'];
+  const chooseTrumpSpecials: SpecialType[] = [
+    'dragon',
+    'juggler',
+    'cloud',
+    'werewolf',
+    'vampire',
+    'shapeshifter',
+  ];
   const noTrumpSpecials: SpecialType[] = ['fairy', 'bomb', 'witch'];
 
   for (const special of chooseTrumpSpecials) {
     it(`${special} flipped => chooseTrump`, () => {
-      const s = postDeal({ hands: [[num('red', 1)], [num('blue', 1)], [num('green', 1)]], trumpCard: sp(special) });
+      const s = postDeal({
+        hands: [[num('red', 1)], [num('blue', 1)], [num('green', 1)]],
+        trumpCard: sp(special),
+      });
       expect(s.phase).toBe('trumpDecision');
       expect(s.decisions[0]!.kind).toBe('chooseTrump');
     });
   }
   for (const special of noTrumpSpecials) {
     it(`${special} flipped => no trump`, () => {
-      const s = postDeal({ hands: [[num('red', 1)], [num('blue', 1)], [num('green', 1)]], trumpCard: sp(special) });
+      const s = postDeal({
+        hands: [[num('red', 1)], [num('blue', 1)], [num('green', 1)]],
+        trumpCard: sp(special),
+      });
       expect(s.phase).toBe('bidding');
       expect(s.round!.trumpSuit).toBeNull();
     });
   }
   it('Jester flipped => no trump; number => its suit; Wizard => chooseTrump', () => {
-    expect(postDeal({ hands: [[num('red', 1)], [num('blue', 1)], [num('green', 1)]], trumpCard: jes(0) }).round!.trumpSuit).toBeNull();
-    expect(postDeal({ hands: [[num('red', 1)], [num('blue', 1)], [num('green', 1)]], trumpCard: num('red', 4) }).round!.trumpSuit).toBe('red');
-    expect(postDeal({ hands: [[num('red', 1)], [num('blue', 1)], [num('green', 1)]], trumpCard: wiz(0) }).phase).toBe('trumpDecision');
+    expect(
+      postDeal({ hands: [[num('red', 1)], [num('blue', 1)], [num('green', 1)]], trumpCard: jes(0) })
+        .round!.trumpSuit,
+    ).toBeNull();
+    expect(
+      postDeal({
+        hands: [[num('red', 1)], [num('blue', 1)], [num('green', 1)]],
+        trumpCard: num('red', 4),
+      }).round!.trumpSuit,
+    ).toBe('red');
+    expect(
+      postDeal({ hands: [[num('red', 1)], [num('blue', 1)], [num('green', 1)]], trumpCard: wiz(0) })
+        .phase,
+    ).toBe('trumpDecision');
   });
 });
 
@@ -436,7 +556,15 @@ describe('trump-on-flip mapping', () => {
 // =====================================================================
 
 const ALL_SPECIALS: SpecialType[] = [
-  'dragon', 'fairy', 'bomb', 'werewolf', 'juggler', 'cloud', 'witch', 'vampire', 'shapeshifter',
+  'dragon',
+  'fairy',
+  'bomb',
+  'werewolf',
+  'juggler',
+  'cloud',
+  'witch',
+  'vampire',
+  'shapeshifter',
 ];
 
 function autoplaySpecials(start: GameState): GameState {
@@ -460,8 +588,12 @@ function autoplaySpecials(start: GameState): GameState {
         const ctx = makeCtx(s);
         const card = p.hand.find((c) => isLegalPlay(p.hand, c, s.round!.currentTrick, ctx))!;
         let decision: PlayDecision = { type: 'none' };
-        if (card.kind === 'special' && card.special === 'shapeshifter') decision = { type: 'shapeshifter', as: 'jester' };
-        else if (card.kind === 'special' && (card.special === 'juggler' || card.special === 'cloud'))
+        if (card.kind === 'special' && card.special === 'shapeshifter')
+          decision = { type: 'shapeshifter', as: 'jester' };
+        else if (
+          card.kind === 'special' &&
+          (card.special === 'juggler' || card.special === 'cloud')
+        )
           decision = { type: 'announceSuit', suit: 'red' };
         s = ok(applyPlay(s, seat, card.id, decision));
         break;
@@ -470,9 +602,15 @@ function autoplaySpecials(start: GameState): GameState {
         const seat = awaitingDecisionSeats(s)[0]!;
         const d = s.decisions[seat]!;
         if (d.kind === 'cloudAdjust') s = ok(applyResolve(s, seat, { delta: 1 }));
-        else if (d.kind === 'jugglerPass') s = ok(applyResolve(s, seat, { cardId: playerAt(s, seat)!.hand[0]!.id }));
+        else if (d.kind === 'jugglerPass')
+          s = ok(applyResolve(s, seat, { cardId: playerAt(s, seat)!.hand[0]!.id }));
         else if (d.kind === 'witchSwap')
-          s = ok(applyResolve(s, seat, { takeId: d.trickCardIds[0]!, giveId: playerAt(s, seat)!.hand[0]!.id }));
+          s = ok(
+            applyResolve(s, seat, {
+              takeId: d.trickCardIds[0]!,
+              giveId: playerAt(s, seat)!.hand[0]!.id,
+            }),
+          );
         else throw new Error(`unexpected decision in resolving: ${d.kind}`);
         break;
       }
@@ -490,7 +628,9 @@ describe('full seeded game with all specials', () => {
   for (const seed of [101, 202, 303]) {
     it(`seed ${seed}: 3 players runs to gameOver`, () => {
       const players = [0, 1, 2].map((seat) => ({ seat, name: `P${seat}` }));
-      const s = autoplaySpecials(createGame({ roomCode: 'ALL', players, selectedSpecials: ALL_SPECIALS, seed }));
+      const s = autoplaySpecials(
+        createGame({ roomCode: 'ALL', players, selectedSpecials: ALL_SPECIALS, seed }),
+      );
       expect(s.phase).toBe('gameOver');
       expect(s.scoreboard).toHaveLength(totalRoundsForCount(3));
       expect(s.standings).toHaveLength(3);

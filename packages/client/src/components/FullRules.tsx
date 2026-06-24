@@ -29,8 +29,8 @@ export function FullRules() {
       <p>
         Shuffle and deal the round's cards to each player; the rest form a face-down pile. Flip its
         top card — its colour is trump for the round. If a Wizard is flipped, the dealer chooses the
-        trump colour; if a Jester is flipped, there is no trump. In the base game the final round has
-        no trump (all cards are dealt); with specials there are enough extra cards that the last
+        trump colour; if a Jester is flipped, there is no trump. In the base game the final round
+        has no trump (all cards are dealt); with specials there are enough extra cards that the last
         round still flips one.
       </p>
 
@@ -46,8 +46,8 @@ export function FullRules() {
         The first predictor leads the first trick. You must follow the led colour if you can;
         otherwise play anything (a trump or off-colour). Wizards and Jesters may always be played.
         The trick is won by the first Wizard played; if none, the highest trump; if no trump either,
-        the highest card of the colour that was led. If a Jester leads, the colour is only set once a
-        number card is played; if only Jesters are played, the first Jester wins. The winner leads
+        the highest card of the colour that was led. If a Jester leads, the colour is only set once
+        a number card is played; if only Jesters are played, the first Jester wins. The winner leads
         the next trick.
       </p>
 

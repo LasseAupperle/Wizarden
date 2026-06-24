@@ -23,7 +23,9 @@ export function GameModePicker({ mode, fullRounds, onChange, disabled }: Props) 
           onClick={() => onChange(m)}
           className={cn(
             'rounded-ui border p-3 text-center transition disabled:opacity-50',
-            mode === m ? 'border-accent bg-accent/15' : 'border-line bg-elevated hover:border-accent/50',
+            mode === m
+              ? 'border-accent bg-accent/15'
+              : 'border-line bg-elevated hover:border-accent/50',
           )}
         >
           <span className="block font-semibold text-ink">{t(m)}</span>

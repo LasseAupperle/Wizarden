@@ -84,10 +84,15 @@ export function CardView({ card, onClick, disabled, selected, size = 'md' }: Pro
   } else if (card.kind === 'jester') {
     content = (
       <div
-        className={cn(base, 'flex-col gap-0.5 border-line bg-gradient-to-br from-elevated to-[#171527]')}
+        className={cn(
+          base,
+          'flex-col gap-0.5 border-line bg-gradient-to-br from-elevated to-[#171527]',
+        )}
       >
         <JesterIcon size={emblemSize} />
-        {!sm && <span className="text-[8px] font-bold uppercase tracking-wider text-muted">Jester</span>}
+        {!sm && (
+          <span className="text-[8px] font-bold uppercase tracking-wider text-muted">Jester</span>
+        )}
       </div>
     );
   } else {

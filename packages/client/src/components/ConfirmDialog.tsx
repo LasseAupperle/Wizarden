@@ -13,7 +13,15 @@ interface Props {
 }
 
 /** Reusable confirm modal for destructive/irreversible actions (§13). */
-export function ConfirmDialog({ open, title, body, confirmLabel, destructive, onConfirm, onCancel }: Props) {
+export function ConfirmDialog({
+  open,
+  title,
+  body,
+  confirmLabel,
+  destructive,
+  onConfirm,
+  onCancel,
+}: Props) {
   const t = useT();
   return (
     <Modal open={open} onClose={onCancel} title={title}>

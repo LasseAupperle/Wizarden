@@ -16,6 +16,7 @@ import { CardView, cardLabel } from '../components/CardView.js';
 import { SUIT_META } from '../lib/specials.js';
 import { intents } from '../net/socket.js';
 import { playPlaceCard } from '../sound/placeCard.js';
+import { useT } from '../lib/i18n.js';
 import { cn } from '../lib/cn.js';
 
 function ledSuitOf(trick: ClientGameState['currentTrick']): { suit: Suit | null; freed: boolean } {
@@ -61,6 +62,7 @@ function SuitRow({ onPick, extra }: { onPick: (s: Suit) => void; extra?: ReactNo
 }
 
 export function Game({ game }: { game: ClientGameState }) {
+  const t = useT();
   const [scoreOpen, setScoreOpen] = useState(false);
   const [announceCard, setAnnounceCard] = useState<Card | null>(null);
   const [witchTake, setWitchTake] = useState<string | null>(null);
@@ -169,7 +171,29 @@ export function Game({ game }: { game: ClientGameState }) {
       </div>
 
       {/* trick area — a faint violet "table" glow so the centre reads as a surface */}
-      <div className="flex flex-1 flex-col items-center justify-center gap-3 p-4 bg-[radial-gradient(60%_45%_at_50%_42%,rgba(124,92,255,0.10),transparent_70%)]">
+      <div className="relative flex flex-1 flex-col items-center justify-center gap-3 p-4 bg-[radial-gradient(60%_45%_at_50%_42%,rgba(124,92,255,0.10),transparent_70%)]">
+        {/* trump — always visible during the round */}
+        <div className="absolute left-3 top-3 flex flex-col items-center gap-1">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-muted">
+            {t('trump')}
+          </span>
+          {game.trumpCard ? (
+            <CardView card={game.trumpCard} size="sm" />
+          ) : (
+            <span className="rounded-ui border border-line bg-elevated px-2 py-2 text-center text-[10px] text-muted">
+              {t('noTrump')}
+            </span>
+          )}
+          {game.trumpSuit && (
+            <span
+              className="text-[11px] font-bold"
+              style={{ color: `var(--suit-${game.trumpSuit})` }}
+            >
+              {SUIT_META[game.trumpSuit].glyph} {SUIT_META[game.trumpSuit].label}
+            </span>
+          )}
+        </div>
+
         {game.phase === 'roundEnd' && game.lastRoundResult ? (
           <div className="animate-pop min-w-[14rem] rounded-ui border border-line bg-elevated p-4 text-center shadow-card">
             <div className="mb-2 font-display text-lg text-ink">Round {game.roundNumber}</div>
@@ -203,11 +227,11 @@ export function Game({ game }: { game: ClientGameState }) {
         )}
       </div>
 
-      {/* your status + hand */}
+      {/* your status + hand (always visible — incl. while bidding) */}
       <div
         className={cn(
           'border-t p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] transition-colors',
-          yourTurnToPlay ? 'animate-turn border-accent' : 'border-line',
+          yourTurnToPlay || yourTurnToBid ? 'animate-turn border-accent' : 'border-line',
         )}
       >
         <div className="mb-2 flex items-center justify-center gap-2 text-sm text-muted">
@@ -217,10 +241,25 @@ export function Game({ game }: { game: ClientGameState }) {
           <Badge tone="gold">{you?.totalScore ?? 0}</Badge>
           {yourTurnToPlay && (
             <span className="rounded-full bg-grad-accent px-2.5 py-0.5 text-xs font-bold text-white shadow-card">
-              ✋ your turn
+              ✋ {t('yourTurn')}
             </span>
           )}
         </div>
+
+        {/* bidding: inline above the hand so your cards stay visible */}
+        {yourTurnToBid && (
+          <div className="mb-3 rounded-ui border border-accent/50 bg-elevated p-2 shadow-card">
+            <div className="mb-1.5 text-center text-xs font-semibold text-ink">{t('yourBid')}</div>
+            <div className="flex flex-wrap justify-center gap-1.5">
+              {Array.from({ length: game.roundNumber + 1 }, (_, n) => (
+                <Button key={n} size="md" variant="secondary" onClick={() => intents.bid(n)}>
+                  {n}
+                </Button>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="flex flex-wrap justify-center gap-1.5">
           {sortHand(game.yourHand).map((card) => (
             <CardView
@@ -232,17 +271,6 @@ export function Game({ game }: { game: ClientGameState }) {
           ))}
         </div>
       </div>
-
-      {/* bid sheet */}
-      <Sheet open={yourTurnToBid} onClose={() => {}} title="Your bid">
-        <div className="flex flex-wrap gap-2">
-          {Array.from({ length: game.roundNumber + 1 }, (_, n) => (
-            <Button key={n} variant="secondary" onClick={() => intents.bid(n)}>
-              {n}
-            </Button>
-          ))}
-        </div>
-      </Sheet>
 
       {/* decision sheet */}
       <Sheet open={!!decision} onClose={() => {}} title="Your decision">

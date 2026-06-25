@@ -29,6 +29,10 @@ type Key =
   | 'host'
   | 'specials'
   | 'gameMode'
+  | 'trump'
+  | 'noTrump'
+  | 'yourBid'
+  | 'yourTurn'
   | 'full'
   | 'half'
   | 'rounds'
@@ -80,6 +84,10 @@ const en: Record<Key, string> = {
   host: 'Host',
   specials: 'Special cards',
   gameMode: 'Game mode',
+  trump: 'Trump',
+  noTrump: 'No trump',
+  yourBid: 'Your bid',
+  yourTurn: 'your turn',
   full: 'Full',
   half: 'Half',
   rounds: 'rounds',
@@ -132,6 +140,10 @@ const nl: Record<Key, string> = {
   host: 'Host',
   specials: 'Speciale kaarten',
   gameMode: 'Spelmodus',
+  trump: 'Troef',
+  noTrump: 'Geen troef',
+  yourBid: 'Jouw voorspelling',
+  yourTurn: 'jouw beurt',
   full: 'Volledig',
   half: 'Half',
   rounds: 'rondes',
@@ -184,6 +196,10 @@ const de: Record<Key, string> = {
   host: 'Host',
   specials: 'Sonderkarten',
   gameMode: 'Spielmodus',
+  trump: 'Trumpf',
+  noTrump: 'Kein Trumpf',
+  yourBid: 'Deine Ansage',
+  yourTurn: 'du bist dran',
   full: 'Voll',
   half: 'Halb',
   rounds: 'Runden',

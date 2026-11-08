@@ -158,7 +158,7 @@ describe('Phase 5 — disconnect / reconnect / host migration / departures', () 
     await ghost.whenConnected();
     const errP = ghost.nextError();
     ghost.socket.emit('room:rejoin', { token: targetToken });
-    expect((await errP).code).toBe('SESSION_GONE');
+    expect((await errP).code).toBe('REMOVED_FROM_GAME');
   }, 20000);
 
   it('dropping below 3 active ends the game with standings', async () => {

@@ -11,6 +11,19 @@ share one version, bumped on every delivered build.
 - **Ops:** the server keeps itself awake only while a game is in use (self-ping of
   its public URL every 10 min while any player is connected, or for 30 min after
   everyone drops from an unfinished game); otherwise Render may sleep it as usual.
+- **Reconnection (mobile):**
+  - An empty lobby (everyone disconnected, e.g. host switched to WhatsApp to share
+    the link) is kept for 10 min instead of being deleted instantly; a lobby
+    everyone *left* still closes at once.
+  - Fixed: any lobby emptying used to sweep *every* empty room, which could delete
+    a running game whose players were all briefly offline. Reaping is now per room.
+  - Dead connections are detected in ≤ ~18s (was ≤ 45s); returning to the app
+    with a stale connection, or switching Wi-Fi ↔ mobile data, reconnects at once.
+  - Taps made while offline are no longer queued and replayed before the seat is
+    restored (which caused "Something went wrong" toasts); a "you're offline" toast
+    shows instead.
+  - A failed rejoin now says why: server restarted (game lost), room closed, or
+    removed from the game.
 - **CI:** Playwright E2E smoke test now runs in CI (and actually passes — its
   lobby selectors were fixed); optional `PW_CHROMIUM_PATH` for pre-installed browsers.
 - **Server:** `/health` reports the real package version instead of a hardcoded string.

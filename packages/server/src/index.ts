@@ -22,6 +22,12 @@ const MAX_SOCKET_PAYLOAD_BYTES = 16 * 1024;
 // dropped (locked phones, mobile-data blips) before we let Render sleep.
 const ABANDONED_GAME_GRACE_MS = 30 * 60 * 1000;
 
+// Heartbeat: detect a dead connection (phone lost signal / switched network) in
+// ≤ ~18s instead of Socket.IO's default ≤ 45s, so the seat shows as disconnected
+// (and the game pauses for it) promptly. The client also re-checks on foreground.
+const PING_INTERVAL_MS = 10_000;
+const PING_TIMEOUT_MS = 8_000;
+
 // Reported by /health. Read from this package's package.json (one level above
 // both src/ and dist/) so it never drifts from the delivered build's version.
 const SERVER_VERSION: string = (
@@ -37,6 +43,8 @@ export interface WizardenServerOptions {
   botDelayMs?: number;
   leaderboard?: LeaderboardStore;
   redisUrl?: string;
+  /** Override the empty-lobby grace period (tests). */
+  lobbyGraceMs?: number;
 }
 
 export interface WizardenServer {
@@ -76,15 +84,23 @@ export function createWizardenServer(options: WizardenServerOptions = {}): Wizar
   const io = new Server<ClientToServerEvents, ServerToClientEvents>(httpServer, {
     cors: { origin: allowedOrigins, methods: ['GET', 'POST'] },
     maxHttpBufferSize: MAX_SOCKET_PAYLOAD_BYTES,
+    pingInterval: PING_INTERVAL_MS,
+    pingTimeout: PING_TIMEOUT_MS,
   });
 
   const sessions = new SessionStore();
-  const roomManager = new RoomManager({
-    enableDebug,
-    roundSummaryMs: options.roundSummaryMs,
-    botDelayMs: options.botDelayMs,
-    leaderboard,
-  });
+  const roomManager = new RoomManager(
+    {
+      enableDebug,
+      roundSummaryMs: options.roundSummaryMs,
+      botDelayMs: options.botDelayMs,
+      leaderboard,
+    },
+    {
+      lobbyGraceMs: options.lobbyGraceMs,
+      onRemove: (code) => sessions.removeRoom(code), // rejoin then says "room closed"
+    },
+  );
 
   io.on('connection', (socket) => {
     registerSocketHandlers(io, socket, { roomManager, sessions, leaderboard, enableDebug });
@@ -106,6 +122,7 @@ export function createWizardenServer(options: WizardenServerOptions = {}): Wizar
       }),
     close: () =>
       new Promise<void>((resolve) => {
+        roomManager.dispose();
         io.close();
         httpServer.close(() => resolve());
       }),

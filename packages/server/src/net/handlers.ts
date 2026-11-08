@@ -81,7 +81,7 @@ export function registerSocketHandlers(io: Io, socket: Sock, deps: HandlerDeps):
     if (!ctx?.roomCode || ctx.seat === undefined)
       return emitError(socket, ErrorCodes.badRequest, 'not in a room');
     const room = roomManager.get(ctx.roomCode);
-    if (!room) return emitError(socket, ErrorCodes.sessionGone, 'room no longer exists');
+    if (!room) return emitError(socket, ErrorCodes.roomClosed, 'room no longer exists');
     fn(room, ctx.seat);
   };
 
@@ -133,10 +133,19 @@ export function registerSocketHandlers(io: Io, socket: Sock, deps: HandlerDeps):
   on(ClientEvents.roomRejoin, (raw) => {
     const { token } = parse.roomRejoin(raw);
     const session = sessions.get(token);
-    if (!session) return emitError(socket, ErrorCodes.sessionGone, 'session expired');
+    if (!session) {
+      // Tell the player WHY they can't get back in (spec §15).
+      const why = sessions.endReason(token);
+      if (why === 'removed')
+        return emitError(socket, ErrorCodes.removedFromGame, 'no longer in that game');
+      if (why === 'roomClosed') return emitError(socket, ErrorCodes.roomClosed, 'room closed');
+      // Never seen: the server slept/restarted/redeployed and lost all games.
+      return emitError(socket, ErrorCodes.serverRestarted, 'server restarted');
+    }
     const room = roomManager.get(session.roomCode);
-    const player = room?.playerBySeat(session.seat);
-    if (!room || !player) return emitError(socket, ErrorCodes.sessionGone, 'room gone');
+    if (!room) return emitError(socket, ErrorCodes.roomClosed, 'room closed');
+    const player = room.playerBySeat(session.seat);
+    if (!player) return emitError(socket, ErrorCodes.removedFromGame, 'no longer in that game');
 
     // Multi-tab last-connection-wins (§17): evict any older live socket on this seat.
     const old = player.socketId;
@@ -259,7 +268,7 @@ export function registerSocketHandlers(io: Io, socket: Sock, deps: HandlerDeps):
     if (!r.ok) return emitError(socket, r.error.code, r.error.message);
     if (token) sessions.remove(token); // invalidate: a rejoin must now fail
     io.to(room.code).emit(ServerEvents.peerLeft, { seat, name });
-    if (!room.started) roomManager.reapEmpty();
+    roomManager.reapIfAbandoned(room);
     broadcastRoom(io, room);
   };
 
@@ -293,7 +302,7 @@ export function registerSocketHandlers(io: Io, socket: Sock, deps: HandlerDeps):
     if (player.socketId && player.socketId !== socket.id) return;
     room.markDisconnected(player.seat);
     io.to(room.code).emit(ServerEvents.peerDisconnected, { seat: player.seat, name: player.name });
-    if (!room.started) roomManager.reapEmpty();
+    roomManager.reapIfAbandoned(room);
     broadcastRoom(io, room);
   });
 }

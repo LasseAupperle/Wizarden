@@ -17,12 +17,29 @@ import {
 import { useGameStore } from '../store/gameStore.js';
 import { storage } from '../lib/storage.js';
 import { friendlyError, isSessionFatal } from '../lib/errors.js';
+import { translate } from '../lib/i18n.js';
 import { SERVER_URL, DEBUG_ENABLED } from '../lib/env.js';
 
 export { DEBUG_ENABLED };
 
 let socket: Socket | null = null;
 let wakingTimer: ReturnType<typeof setTimeout> | null = null;
+
+/**
+ * The server pings every 10s (see server PING_INTERVAL_MS). If we come back to
+ * the foreground and haven't heard a ping for longer than this, the connection
+ * is a "zombie" (the phone slept or switched networks and the socket died
+ * without noticing) — reconnect immediately instead of waiting for the
+ * heartbeat timeout, during which taps would silently go nowhere.
+ */
+export const STALE_CONNECTION_MS = 15_000;
+let lastServerPingAt = Date.now();
+
+/** Drop the current connection and open a fresh one (re-emits room:rejoin). */
+function forceReconnect(s: Socket): void {
+  s.disconnect();
+  s.connect();
+}
 
 function store() {
   return useGameStore.getState();
@@ -48,7 +65,12 @@ export function getSocket(): Socket {
     if (store().connection === 'connecting') store().setConnection('waking');
   }, 3500);
 
+  socket.io.on('ping', () => {
+    lastServerPingAt = Date.now();
+  });
+
   socket.on('connect', () => {
+    lastServerPingAt = Date.now();
     if (wakingTimer) clearTimeout(wakingTimer);
     store().setConnection('connected');
     const session = storage.getSession();
@@ -58,11 +80,23 @@ export function getSocket(): Socket {
   socket.on('disconnect', () => store().setConnection('reconnecting'));
   socket.io.on('reconnect_attempt', () => store().setConnection('reconnecting'));
 
-  // A backgrounded mobile tab can have its socket silently dropped; when the tab
-  // returns to the foreground, force a reconnect (which re-emits room:rejoin).
+  // A backgrounded/locked phone can have its socket silently die. When the tab
+  // returns to the foreground: reconnect if we know we're offline, and also if
+  // the connection *looks* alive but no server ping arrived recently (zombie).
   if (typeof document !== 'undefined') {
     document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible' && socket && !socket.connected) socket.connect();
+      if (document.visibilityState !== 'visible' || !socket) return;
+      if (!socket.connected) socket.connect();
+      else if (Date.now() - lastServerPingAt > STALE_CONNECTION_MS) forceReconnect(socket);
+    });
+  }
+  // The network came back or changed (Wi-Fi <-> mobile data): the old TCP
+  // connection is almost certainly dead, so start a fresh one right away.
+  if (typeof window !== 'undefined') {
+    window.addEventListener('online', () => {
+      if (!socket) return;
+      if (socket.connected) forceReconnect(socket);
+      else socket.connect();
     });
   }
 
@@ -89,8 +123,21 @@ export function getSocket(): Socket {
 }
 
 // ---- intents (client -> server) ----
+
+// Intents that make sense before you have a seat: Socket.IO may buffer these
+// while connecting (e.g. tapping "Create room" while the server wakes up).
+const BUFFERABLE = new Set<string>([ClientEvents.roomCreate, ClientEvents.roomJoin]);
+
 const emit = (event: string, payload: unknown): void => {
-  getSocket().emit(event, payload);
+  const s = getSocket();
+  // In-room actions (bids, plays, …) are NOT queued while offline: Socket.IO
+  // would replay them on reconnect *before* room:rejoin, where they'd fail.
+  // Tell the player instead; they can tap again once reconnected.
+  if (!s.connected && !BUFFERABLE.has(event)) {
+    store().pushToast(translate(store().settings.language, 'offlineNotSent'));
+    return;
+  }
+  s.emit(event, payload);
 };
 
 export const intents = {
@@ -109,7 +156,8 @@ export const intents = {
   removePlayer: (seat: number): void => emit(ClientEvents.hostRemovePlayer, { seat }),
   playAgain: (): void => emit(ClientEvents.gamePlayAgain, {}),
   leave: (): void => {
-    emit(ClientEvents.roomLeave, {});
+    const s = getSocket();
+    if (s.connected) s.emit(ClientEvents.roomLeave, {}); // offline: just forget locally
     storage.clearSession();
     useGameStore.getState().resetToLanding();
   },

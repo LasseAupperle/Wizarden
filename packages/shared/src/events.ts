@@ -69,6 +69,11 @@ export const ErrorCodes = {
   rateLimited: 'RATE_LIMITED', // too many actions too fast
   serverError: 'SERVER_ERROR', // unexpected exception (no internals leaked)
   sessionReplaced: 'SESSION_REPLACED', // same token opened in a newer tab (last wins)
+  // Rejoin failures, split by cause so the player is told what happened (all
+  // session-fatal: clear token + Landing).
+  serverRestarted: 'SERVER_RESTARTED', // token unknown: server slept/restarted/redeployed
+  roomClosed: 'ROOM_CLOSED', // room was closed (empty lobby past its grace period)
+  removedFromGame: 'REMOVED_FROM_GAME', // you left or the host removed you
 } as const;
 
 export type ErrorCode = (typeof ErrorCodes)[keyof typeof ErrorCodes];

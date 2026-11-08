@@ -13,6 +13,9 @@ describe('error mapping (§15)', () => {
 
   it('treats session-gone as fatal (routes to Landing)', () => {
     expect(isSessionFatal(ErrorCodes.sessionGone)).toBe(true);
+    expect(isSessionFatal(ErrorCodes.serverRestarted)).toBe(true);
+    expect(isSessionFatal(ErrorCodes.roomClosed)).toBe(true);
+    expect(isSessionFatal(ErrorCodes.removedFromGame)).toBe(true);
     expect(isSessionFatal(ErrorCodes.notYourTurn)).toBe(false);
   });
 

@@ -21,6 +21,10 @@ const MESSAGES: Record<ErrorCode, string> = {
   [ErrorCodes.rateLimited]: 'Slow down a moment, then try again.',
   [ErrorCodes.serverError]: 'Something went wrong on our side. Try again.',
   [ErrorCodes.sessionReplaced]: 'This game was opened in another tab.',
+  [ErrorCodes.serverRestarted]:
+    'The server restarted, so that game was lost. Create a new room to play again.',
+  [ErrorCodes.roomClosed]: 'That room was closed because everyone had left.',
+  [ErrorCodes.removedFromGame]: "You're no longer in that game (you left or the host removed you).",
 };
 
 export function friendlyError(code: string, fallback = 'Something went wrong.'): string {
@@ -28,6 +32,14 @@ export function friendlyError(code: string, fallback = 'Something went wrong.'):
 }
 
 /** Session-fatal errors clear the token and route the client back to Landing. */
+const SESSION_FATAL = new Set<string>([
+  ErrorCodes.sessionGone,
+  ErrorCodes.sessionReplaced,
+  ErrorCodes.serverRestarted,
+  ErrorCodes.roomClosed,
+  ErrorCodes.removedFromGame,
+]);
+
 export function isSessionFatal(code: string): boolean {
-  return code === ErrorCodes.sessionGone || code === ErrorCodes.sessionReplaced;
+  return SESSION_FATAL.has(code);
 }

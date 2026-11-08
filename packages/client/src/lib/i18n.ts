@@ -53,6 +53,7 @@ type Key =
   | 'connecting'
   | 'wakingServer'
   | 'reconnecting'
+  | 'offlineNotSent'
   | 'pausedFor'
   | 'sessionEnded'
   | 'retry'
@@ -108,6 +109,7 @@ const en: Record<Key, string> = {
   connecting: 'Connecting…',
   wakingServer: 'Waking up the server… this can take up to a minute.',
   reconnecting: 'Reconnecting…',
+  offlineNotSent: "You're offline — reconnecting. Try again in a moment.",
   pausedFor: 'Paused — waiting for',
   sessionEnded: 'Your session ended.',
   retry: 'Retry',
@@ -164,6 +166,7 @@ const nl: Record<Key, string> = {
   connecting: 'Verbinden…',
   wakingServer: 'Server opstarten… dit kan tot een minuut duren.',
   reconnecting: 'Opnieuw verbinden…',
+  offlineNotSent: 'Je bent offline — opnieuw verbinden. Probeer het zo nog eens.',
   pausedFor: 'Gepauzeerd — wachten op',
   sessionEnded: 'Je sessie is beëindigd.',
   retry: 'Opnieuw',
@@ -220,6 +223,7 @@ const de: Record<Key, string> = {
   connecting: 'Verbinde…',
   wakingServer: 'Server wird gestartet… das kann bis zu einer Minute dauern.',
   reconnecting: 'Neu verbinden…',
+  offlineNotSent: 'Du bist offline — verbinde neu. Versuch es gleich noch einmal.',
   pausedFor: 'Pausiert — warte auf',
   sessionEnded: 'Deine Sitzung ist beendet.',
   retry: 'Erneut',

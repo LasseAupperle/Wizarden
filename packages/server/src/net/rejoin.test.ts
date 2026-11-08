@@ -14,7 +14,7 @@ describe('rejoin robustness (mobile)', () => {
   const sockets: Socket[] = [];
 
   async function boot(lobbyGraceMs: number): Promise<void> {
-    server = createWizardenServer({ roundSummaryMs: 10, lobbyGraceMs });
+    server = createWizardenServer({ roundSummaryMs: 10, lobbyGraceMs, trickHoldMs: 0 });
     url = `http://localhost:${await server.listen(0)}`;
   }
   afterEach(async () => {

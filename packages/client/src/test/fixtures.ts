@@ -33,6 +33,7 @@ export function makeState(over: Partial<ClientGameState> = {}): ClientGameState 
     trumpCard: null,
     trumpSuit: 'red',
     currentTrick: [],
+    lastTrick: null,
     selectedSpecials: [],
     pendingDecision: null,
     paused: false,

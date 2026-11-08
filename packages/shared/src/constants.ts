@@ -55,6 +55,10 @@ export const WRONG_BID_PENALTY_PER_OFF = 10;
 // Round-end summary hold (ms) before the server auto-advances to the next round.
 export const ROUND_SUMMARY_MS = 5000;
 
+/** How long a finished trick stays on the table (winner highlighted) before the
+ *  next lead may play. Server-scheduled; the engine stays pure. */
+export const TRICK_HOLD_MS = 2000;
+
 // Room codes: 4-6 uppercase alphanumerics, excluding ambiguous chars (O/0/I/1).
 export const ROOM_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 export const ROOM_CODE_LENGTH = 4;

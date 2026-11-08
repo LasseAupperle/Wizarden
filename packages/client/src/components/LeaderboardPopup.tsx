@@ -24,7 +24,7 @@ export function LeaderboardPopup({ open, onClose }: { open: boolean; onClose: ()
   }, [open]);
 
   return (
-    <Modal open={open} onClose={onClose} title={`🏆 ${t('leaderboard')}`}>
+    <Modal open={open} onClose={onClose} title={t('leaderboard')}>
       {entries === null ? (
         <p className="py-6 text-center text-muted">…</p>
       ) : entries.length === 0 ? (

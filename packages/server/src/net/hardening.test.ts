@@ -11,7 +11,7 @@ describe('Phase 4/5 hardening — validation, rate limit, names, multi-tab (§15
   const clients: Socket[] = [];
 
   beforeEach(async () => {
-    server = createWizardenServer({ roundSummaryMs: 10 });
+    server = createWizardenServer({ roundSummaryMs: 10, trickHoldMs: 0 });
     url = `http://localhost:${await server.listen(0)}`;
   });
   afterEach(async () => {

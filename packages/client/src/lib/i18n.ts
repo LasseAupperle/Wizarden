@@ -1,70 +1,18 @@
-// Tiny i18n layer (§23.2). UI chrome is translated for en/nl/de; the full rules
-// and how-to-play reference stay English-only in v1. English is the default.
+// Tiny i18n layer (§23.2). All UI text — menus, the game screen, card and suit
+// names, decisions, round summaries and error messages — is translated for
+// en/nl/de. Only the long-form full rules / how-to-play / special-card rule
+// texts stay English-only. English is the default and the source of keys.
+//
+// `{name}`-style placeholders are filled from the optional `vars` argument.
 
 import type { Locale } from '@wizarden/shared';
 import { useGameStore } from '../store/gameStore.js';
 
-type Key =
-  | 'tagline'
-  | 'yourName'
-  | 'createRoom'
-  | 'joinRoom'
-  | 'roomCode'
-  | 'howToPlay'
-  | 'fullRules'
-  | 'leaderboard'
-  | 'noWinnersYet'
-  | 'settings'
-  | 'sound'
-  | 'animations'
-  | 'theme'
-  | 'light'
-  | 'dark'
-  | 'language'
-  | 'menu'
-  | 'close'
-  | 'cancel'
-  | 'lobby'
-  | 'players'
-  | 'host'
-  | 'specials'
-  | 'gameMode'
-  | 'trump'
-  | 'noTrump'
-  | 'yourBid'
-  | 'yourTurn'
-  | 'full'
-  | 'half'
-  | 'rounds'
-  | 'invite'
-  | 'linkCopied'
-  | 'startGame'
-  | 'needMorePlayers'
-  | 'addBot'
-  | 'waitingForHost'
-  | 'leaveGame'
-  | 'leaveConfirmTitle'
-  | 'leaveConfirmBody'
-  | 'playAgain'
-  | 'gameOver'
-  | 'winner'
-  | 'winners'
-  | 'backToStart'
-  | 'connecting'
-  | 'wakingServer'
-  | 'reconnecting'
-  | 'offlineNotSent'
-  | 'pausedFor'
-  | 'sessionEnded'
-  | 'retry'
-  | 'points'
-  | 'you';
-
-const en: Record<Key, string> = {
+const en = {
   tagline: 'Wizard — 30-Year Edition',
   yourName: 'Your name',
   createRoom: 'Create room',
-  joinRoom: 'Join room',
+  joinRoom: 'Join',
   roomCode: 'Room code',
   howToPlay: 'How to play',
   fullRules: 'Full rules',
@@ -84,6 +32,7 @@ const en: Record<Key, string> = {
   players: 'Players',
   host: 'Host',
   specials: 'Special cards',
+  paired: 'paired',
   gameMode: 'Game mode',
   trump: 'Trump',
   noTrump: 'No trump',
@@ -94,6 +43,8 @@ const en: Record<Key, string> = {
   rounds: 'rounds',
   invite: 'Invite',
   linkCopied: 'Link copied!',
+  copyCode: 'Copy room code',
+  codeCopied: 'Code copied!',
   startGame: 'Start game',
   needMorePlayers: 'Need 3–6 players to start',
   addBot: 'Add bot',
@@ -115,7 +66,80 @@ const en: Record<Key, string> = {
   retry: 'Retry',
   points: 'pts',
   you: 'You',
+  // game screen
+  roundOf: 'Round {n}/{total}',
+  roundN: 'Round {n}',
+  scoreboard: 'Scoreboard',
+  bidShort: 'bid',
+  wonShort: 'won',
+  bidsTotal: 'Bids: {bids} of {cards}',
+  bidN: 'Bid {n}',
+  nextRoundIn: 'Next round in {n}s…',
+  finalScores: 'Final scores…',
+  winsTrick: '{name} wins the trick',
+  youWinTrick: 'You win the trick',
+  noOneWins: 'No one wins this trick',
+  starts: 'starts',
+  left: 'left',
+  deciding: 'deciding',
+  yourDecision: 'Your decision',
+  chooseTrump: 'Choose the trump colour.',
+  werewolfSwap: 'Swap the Werewolf with the trump card and choose trump.',
+  cloudAdjust: 'Adjust your bid by ±1.',
+  jugglerPass: 'Pass one card to the next player.',
+  witchTake: 'Take a card from the trick.',
+  witchGive: 'Now give one of your cards.',
+  playAs: 'Play it as',
+  announceSuit: 'Choose a colour for this card.',
+  waitingFor: 'Waiting for {name}…',
+  waitingOthers: 'Waiting for the other players…',
+  tapAgainToPlay: 'Tap again to play',
+  keyboardHint: '← → choose · Enter play',
+  bidKeysHint: 'Type a number, then Enter',
+  colBid: 'Bid',
+  colWon: 'Won',
+  colPoints: 'Pts',
+  colTotal: 'Total',
+  // suits + cards
+  suit_red: 'Red',
+  suit_blue: 'Blue',
+  suit_green: 'Green',
+  suit_yellow: 'Yellow',
+  card_wizard: 'Wizard',
+  card_jester: 'Jester',
+  sp_dragon: 'Dragon',
+  sp_fairy: 'Fairy',
+  sp_bomb: 'Bomb',
+  sp_werewolf: 'Werewolf',
+  sp_juggler: 'Juggler',
+  sp_cloud: 'Cloud',
+  sp_witch: 'Witch',
+  sp_vampire: 'Vampire',
+  sp_shapeshifter: 'Shapeshifter',
+  // errors (spec §15) — players never see raw codes
+  e_roomNotFound: "That room doesn't exist.",
+  e_roomFull: 'That room is full.',
+  e_nameTaken: 'That name is already taken.',
+  e_gameInProgress: 'The game has already started.',
+  e_sessionGone: 'Your session ended. Returning to the start.',
+  e_notHost: 'Only the host can do that.',
+  e_notYourTurn: "It's not your turn yet.",
+  e_illegalMove: "You can't play that right now.",
+  e_invalidDecision: 'That choice is not valid.',
+  e_invalidConfig: 'Check the game settings and try again.',
+  e_debugDisabled: 'That option is only available in debug mode.',
+  e_badRequest: 'Something went wrong with that request.',
+  e_nameInvalid: 'Please enter a name.',
+  e_rateLimited: 'Slow down a moment, then try again.',
+  e_serverError: 'Something went wrong on our side. Try again.',
+  e_sessionReplaced: 'This game was opened in another tab.',
+  e_serverRestarted:
+    'The server restarted, so that game was lost. Create a new room to play again.',
+  e_roomClosed: 'That room was closed because everyone had left.',
+  e_removedFromGame: "You're no longer in that game (you left or the host removed you).",
 };
+
+type Key = keyof typeof en;
 
 const nl: Record<Key, string> = {
   tagline: 'Wizard — 30-jarig jubileum',
@@ -141,6 +165,7 @@ const nl: Record<Key, string> = {
   players: 'Spelers',
   host: 'Host',
   specials: 'Speciale kaarten',
+  paired: 'gekoppeld',
   gameMode: 'Spelmodus',
   trump: 'Troef',
   noTrump: 'Geen troef',
@@ -151,6 +176,8 @@ const nl: Record<Key, string> = {
   rounds: 'rondes',
   invite: 'Uitnodigen',
   linkCopied: 'Link gekopieerd!',
+  copyCode: 'Kamercode kopiëren',
+  codeCopied: 'Code gekopieerd!',
   startGame: 'Spel starten',
   needMorePlayers: '3–6 spelers nodig om te starten',
   addBot: 'Bot toevoegen',
@@ -172,6 +199,75 @@ const nl: Record<Key, string> = {
   retry: 'Opnieuw',
   points: 'ptn',
   you: 'Jij',
+  roundOf: 'Ronde {n}/{total}',
+  roundN: 'Ronde {n}',
+  scoreboard: 'Scorebord',
+  bidShort: 'bod',
+  wonShort: 'gehaald',
+  bidsTotal: 'Geboden: {bids} van {cards}',
+  bidN: 'Bied {n}',
+  nextRoundIn: 'Volgende ronde over {n}s…',
+  finalScores: 'Eindstand…',
+  winsTrick: '{name} wint de slag',
+  youWinTrick: 'Jij wint de slag',
+  noOneWins: 'Niemand wint deze slag',
+  starts: 'begint',
+  left: 'vertrokken',
+  deciding: 'kiest',
+  yourDecision: 'Jouw keuze',
+  chooseTrump: 'Kies de troefkleur.',
+  werewolfSwap: 'Ruil de Weerwolf met de troefkaart en kies troef.',
+  cloudAdjust: 'Pas je bod aan met ±1.',
+  jugglerPass: 'Geef één kaart door aan de volgende speler.',
+  witchTake: 'Pak een kaart uit de slag.',
+  witchGive: 'Geef nu een van je kaarten.',
+  playAs: 'Speel als',
+  announceSuit: 'Kies een kleur voor deze kaart.',
+  waitingFor: 'Wachten op {name}…',
+  waitingOthers: 'Wachten op de andere spelers…',
+  tapAgainToPlay: 'Tik nogmaals om te spelen',
+  keyboardHint: '← → kiezen · Enter spelen',
+  bidKeysHint: 'Typ een getal, dan Enter',
+  colBid: 'Bod',
+  colWon: 'Gehaald',
+  colPoints: 'Ptn',
+  colTotal: 'Totaal',
+  suit_red: 'Rood',
+  suit_blue: 'Blauw',
+  suit_green: 'Groen',
+  suit_yellow: 'Geel',
+  card_wizard: 'Tovenaar',
+  card_jester: 'Nar',
+  sp_dragon: 'Draak',
+  sp_fairy: 'Fee',
+  sp_bomb: 'Bom',
+  sp_werewolf: 'Weerwolf',
+  sp_juggler: 'Jongleur',
+  sp_cloud: 'Wolk',
+  sp_witch: 'Heks',
+  sp_vampire: 'Vampier',
+  sp_shapeshifter: 'Vormwisselaar',
+  e_roomNotFound: 'Die kamer bestaat niet.',
+  e_roomFull: 'Die kamer is vol.',
+  e_nameTaken: 'Die naam is al in gebruik.',
+  e_gameInProgress: 'Het spel is al begonnen.',
+  e_sessionGone: 'Je sessie is beëindigd. Terug naar het begin.',
+  e_notHost: 'Alleen de host kan dat doen.',
+  e_notYourTurn: 'Je bent nog niet aan de beurt.',
+  e_illegalMove: 'Die kaart mag je nu niet spelen.',
+  e_invalidDecision: 'Die keuze is niet geldig.',
+  e_invalidConfig: 'Controleer de spelinstellingen en probeer opnieuw.',
+  e_debugDisabled: 'Die optie is alleen beschikbaar in debugmodus.',
+  e_badRequest: 'Er ging iets mis met dat verzoek.',
+  e_nameInvalid: 'Vul een naam in.',
+  e_rateLimited: 'Even rustig aan, probeer het zo opnieuw.',
+  e_serverError: 'Er ging iets mis aan onze kant. Probeer opnieuw.',
+  e_sessionReplaced: 'Dit spel is in een ander tabblad geopend.',
+  e_serverRestarted:
+    'De server is herstart, dus dat spel is verloren. Maak een nieuwe kamer om verder te spelen.',
+  e_roomClosed: 'Die kamer is gesloten omdat iedereen weg was.',
+  e_removedFromGame:
+    'Je zit niet meer in dat spel (je bent vertrokken of de host heeft je verwijderd).',
 };
 
 const de: Record<Key, string> = {
@@ -198,6 +294,7 @@ const de: Record<Key, string> = {
   players: 'Spieler',
   host: 'Host',
   specials: 'Sonderkarten',
+  paired: 'gekoppelt',
   gameMode: 'Spielmodus',
   trump: 'Trumpf',
   noTrump: 'Kein Trumpf',
@@ -208,6 +305,8 @@ const de: Record<Key, string> = {
   rounds: 'Runden',
   invite: 'Einladen',
   linkCopied: 'Link kopiert!',
+  copyCode: 'Raumcode kopieren',
+  codeCopied: 'Code kopiert!',
   startGame: 'Spiel starten',
   needMorePlayers: '3–6 Spieler zum Starten nötig',
   addBot: 'Bot hinzufügen',
@@ -229,18 +328,93 @@ const de: Record<Key, string> = {
   retry: 'Erneut',
   points: 'Pkt',
   you: 'Du',
+  roundOf: 'Runde {n}/{total}',
+  roundN: 'Runde {n}',
+  scoreboard: 'Punktestand',
+  bidShort: 'Ansage',
+  wonShort: 'Stiche',
+  bidsTotal: 'Angesagt: {bids} von {cards}',
+  bidN: '{n} ansagen',
+  nextRoundIn: 'Nächste Runde in {n}s…',
+  finalScores: 'Endstand…',
+  winsTrick: '{name} gewinnt den Stich',
+  youWinTrick: 'Du gewinnst den Stich',
+  noOneWins: 'Niemand gewinnt diesen Stich',
+  starts: 'beginnt',
+  left: 'gegangen',
+  deciding: 'entscheidet',
+  yourDecision: 'Deine Entscheidung',
+  chooseTrump: 'Wähle die Trumpffarbe.',
+  werewolfSwap: 'Tausche den Werwolf mit der Trumpfkarte und wähle Trumpf.',
+  cloudAdjust: 'Ändere deine Ansage um ±1.',
+  jugglerPass: 'Gib eine Karte an den nächsten Spieler weiter.',
+  witchTake: 'Nimm eine Karte aus dem Stich.',
+  witchGive: 'Gib jetzt eine deiner Karten ab.',
+  playAs: 'Spielen als',
+  announceSuit: 'Wähle eine Farbe für diese Karte.',
+  waitingFor: 'Warte auf {name}…',
+  waitingOthers: 'Warte auf die anderen Spieler…',
+  tapAgainToPlay: 'Nochmal tippen zum Spielen',
+  keyboardHint: '← → wählen · Enter spielen',
+  bidKeysHint: 'Zahl tippen, dann Enter',
+  colBid: 'Ansage',
+  colWon: 'Stiche',
+  colPoints: 'Pkt',
+  colTotal: 'Gesamt',
+  suit_red: 'Rot',
+  suit_blue: 'Blau',
+  suit_green: 'Grün',
+  suit_yellow: 'Gelb',
+  card_wizard: 'Zauberer',
+  card_jester: 'Narr',
+  sp_dragon: 'Drache',
+  sp_fairy: 'Fee',
+  sp_bomb: 'Bombe',
+  sp_werewolf: 'Werwolf',
+  sp_juggler: 'Jongleur',
+  sp_cloud: 'Wolke',
+  sp_witch: 'Hexe',
+  sp_vampire: 'Vampir',
+  sp_shapeshifter: 'Gestaltwandler',
+  e_roomNotFound: 'Diesen Raum gibt es nicht.',
+  e_roomFull: 'Dieser Raum ist voll.',
+  e_nameTaken: 'Dieser Name ist schon vergeben.',
+  e_gameInProgress: 'Das Spiel hat schon begonnen.',
+  e_sessionGone: 'Deine Sitzung ist beendet. Zurück zum Start.',
+  e_notHost: 'Das kann nur der Host.',
+  e_notYourTurn: 'Du bist noch nicht dran.',
+  e_illegalMove: 'Diese Karte darfst du gerade nicht spielen.',
+  e_invalidDecision: 'Diese Wahl ist ungültig.',
+  e_invalidConfig: 'Prüfe die Spieleinstellungen und versuch es erneut.',
+  e_debugDisabled: 'Diese Option gibt es nur im Debug-Modus.',
+  e_badRequest: 'Bei dieser Anfrage ist etwas schiefgelaufen.',
+  e_nameInvalid: 'Bitte gib einen Namen ein.',
+  e_rateLimited: 'Kurz langsamer, dann nochmal versuchen.',
+  e_serverError: 'Bei uns ist etwas schiefgelaufen. Versuch es erneut.',
+  e_sessionReplaced: 'Dieses Spiel wurde in einem anderen Tab geöffnet.',
+  e_serverRestarted:
+    'Der Server wurde neu gestartet, das Spiel ist verloren. Erstelle einen neuen Raum.',
+  e_roomClosed: 'Der Raum wurde geschlossen, weil alle gegangen waren.',
+  e_removedFromGame:
+    'Du bist nicht mehr in diesem Spiel (du bist gegangen oder der Host hat dich entfernt).',
 };
 
 const CATALOGUES: Record<Locale, Record<Key, string>> = { en, nl, de };
 
-export function translate(locale: Locale, key: Key): string {
-  return CATALOGUES[locale]?.[key] ?? en[key];
+export type Vars = Record<string, string | number>;
+
+export function translate(locale: Locale, key: Key, vars?: Vars): string {
+  const text = CATALOGUES[locale]?.[key] ?? en[key];
+  if (!vars) return text;
+  return text.replace(/\{(\w+)\}/g, (m, name: string) => (name in vars ? String(vars[name]) : m));
 }
 
-/** Hook: returns a `t(key)` bound to the current language setting. */
-export function useT(): (key: Key) => string {
+export type Translate = (key: Key, vars?: Vars) => string;
+
+/** Hook: returns a `t(key, vars?)` bound to the current language setting. */
+export function useT(): Translate {
   const locale = useGameStore((s) => s.settings.language);
-  return (key: Key) => translate(locale, key);
+  return (key: Key, vars?: Vars) => translate(locale, key, vars);
 }
 
 export type { Key as MessageKey };

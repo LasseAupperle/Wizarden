@@ -19,6 +19,11 @@ describe('error mapping (§15)', () => {
     expect(isSessionFatal(ErrorCodes.notYourTurn)).toBe(false);
   });
 
+  it("speaks the player's language (nl/de)", () => {
+    expect(friendlyError(ErrorCodes.roomFull, '', 'nl')).toBe('Die kamer is vol.');
+    expect(friendlyError(ErrorCodes.roomFull, '', 'de')).toBe('Dieser Raum ist voll.');
+  });
+
   it('falls back gracefully for unknown codes', () => {
     expect(friendlyError('SOMETHING_NEW')).toMatch(/wrong/i);
   });

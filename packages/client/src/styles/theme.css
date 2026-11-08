@@ -24,6 +24,18 @@
   --suit-green: #2fb87a;
   --suit-yellow: #ffd23f;
 
+  /* card faces for Wizard / Jester / specials, and the dim layer on unplayable
+     cards (dims the face but never the number/corner index) */
+  --card-face-from: #2a2540;
+  --card-face-to: #1a1430;
+  --card-dim: rgba(10, 8, 18, 0.5);
+  --emblem-witch: #c4b2ff;
+
+  /* the game table (felt) */
+  --table-from: rgba(124, 92, 255, 0.16);
+  --table-to: rgba(124, 92, 255, 0.04);
+  --table-edge: rgba(124, 92, 255, 0.28);
+
   /* text + score */
   --text: #f4f2fa;
   --text-secondary: #a8a2bc;
@@ -58,6 +70,13 @@
   --suit-blue: #2563eb;
   --suit-green: #1f9d63;
   --suit-yellow: #c79400;
+  --card-face-from: #ffffff;
+  --card-face-to: #e9e4fa;
+  --card-dim: rgba(243, 241, 251, 0.55);
+  --emblem-witch: #5a37f0;
+  --table-from: rgba(107, 72, 255, 0.1);
+  --table-to: rgba(107, 72, 255, 0.03);
+  --table-edge: rgba(107, 72, 255, 0.25);
   --text: #1a1726;
   --text-secondary: #5b5570;
   --positive: #1f9d63;

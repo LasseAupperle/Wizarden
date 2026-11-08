@@ -79,7 +79,7 @@ export function GameOver({ game }: { game: ClientGameState }) {
               <span className="flex items-center gap-2">
                 <span className="w-5 text-muted">{i + 1}.</span>
                 <span className="font-semibold text-ink">{p.name}</span>
-                {!p.inPlay && <span className="text-xs text-muted">(left)</span>}
+                {!p.inPlay && <span className="text-xs text-muted">({t('left')})</span>}
                 {p.seat === game.yourSeat && <Badge tone="accent">{t('you')}</Badge>}
               </span>
               <Badge tone="gold">{p.totalScore}</Badge>

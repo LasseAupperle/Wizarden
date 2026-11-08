@@ -8,6 +8,7 @@ import {
   MIN_PLAYERS,
   MIN_PLAYERS_DEBUG,
   ROUND_SUMMARY_MS,
+  TRICK_HOLD_MS,
   type ErrorCode,
   type GameMode,
   type PlayDecision,
@@ -47,6 +48,8 @@ export interface RoomOptions {
   enableDebug?: boolean;
   botDelayMs?: number;
   leaderboard?: LeaderboardStore;
+  /** How long a finished trick stays on the table; 0 disables the hold. */
+  trickHoldMs?: number;
 }
 
 export type RoomResult = ActionResult | { ok: false; error: { code: ErrorCode; message: string } };
@@ -90,6 +93,11 @@ export class Room {
   private readonly leaderboard?: LeaderboardStore;
   private advanceTimer: ReturnType<typeof setTimeout> | null = null;
   private botTimer: ReturnType<typeof setTimeout> | null = null;
+  private readonly trickHoldMs: number;
+  private holdTimer: ReturnType<typeof setTimeout> | null = null;
+  private lastSeenTrickSeq = 0;
+  /** True while a just-finished trick is shown on the table (next lead waits). */
+  holdingTrick = false;
 
   constructor(code: string, opts: RoomOptions = {}) {
     this.code = code;
@@ -97,6 +105,7 @@ export class Room {
     this.enableDebug = opts.enableDebug ?? false;
     this.botDelayMs = opts.botDelayMs ?? 250;
     this.leaderboard = opts.leaderboard;
+    this.trickHoldMs = opts.trickHoldMs ?? TRICK_HOLD_MS;
   }
 
   // ---- lobby ----
@@ -220,10 +229,12 @@ export class Room {
   }
 
   bid(seat: number, value: number): RoomResult {
+    if (this.holdingTrick) return fail(ErrorCodes.notYourTurn, 'wait for the trick to clear');
     return this.commit(() => applyBid(this.requireGame(), seat, value));
   }
 
   play(seat: number, cardId: string, decision: PlayDecision): RoomResult {
+    if (this.holdingTrick) return fail(ErrorCodes.notYourTurn, 'wait for the trick to clear');
     return this.commit(() => applyPlay(this.requireGame(), seat, cardId, decision));
   }
 
@@ -234,6 +245,8 @@ export class Room {
   playAgain(seat: number): RoomResult {
     if (this.playerBySeat(seat)?.isHost !== true) return fail(ErrorCodes.notHost, 'host only');
     this.clearTimer();
+    this.endHold();
+    this.lastSeenTrickSeq = 0;
     this.started = false;
     this.game = null;
     this.flags = {
@@ -261,6 +274,11 @@ export class Room {
   }
 
   private afterMutation(): void {
+    const finished = this.game?.round?.lastTrick;
+    if (finished && finished.seq !== this.lastSeenTrickSeq) {
+      this.lastSeenTrickSeq = finished.seq;
+      this.startHold();
+    }
     if (this.game?.phase === 'roundEnd') this.scheduleAdvance();
     if (this.game?.phase === 'gameOver' && !this.flags.leaderboardRecorded) {
       this.flags.leaderboardRecorded = true;
@@ -311,7 +329,7 @@ export class Room {
       this.botTimer = null;
     }
     const g = this.game;
-    if (!g || g.phase === 'gameOver') return;
+    if (!g || g.phase === 'gameOver' || this.holdingTrick) return;
     const seat = this.nextBotActor();
     if (seat === null) return;
     this.botTimer = setTimeout(() => {
@@ -417,8 +435,30 @@ export class Room {
     g.pausedForName = name;
   }
 
+  // ---- finished-trick hold (server-scheduled; the engine has no timers) ----
+
+  private startHold(): void {
+    if (this.trickHoldMs <= 0) return;
+    this.endHold();
+    this.holdingTrick = true;
+    this.holdTimer = setTimeout(() => {
+      this.holdTimer = null;
+      this.holdingTrick = false;
+      this.driveBots();
+      this.onChange();
+    }, this.trickHoldMs);
+  }
+
+  private endHold(): void {
+    if (this.holdTimer) clearTimeout(this.holdTimer);
+    this.holdTimer = null;
+    this.holdingTrick = false;
+  }
+
   private scheduleAdvance(): void {
     this.clearTimer();
+    // The round's last trick is shown first, then the summary for its full time.
+    const delay = this.roundSummaryMs + (this.holdingTrick ? this.trickHoldMs : 0);
     this.advanceTimer = setTimeout(() => {
       this.advanceTimer = null;
       if (!this.game) return;
@@ -426,7 +466,7 @@ export class Room {
       if (result.ok) this.game = result.state;
       this.afterMutation();
       this.onChange();
-    }, this.roundSummaryMs);
+    }, delay);
   }
 
   private clearTimer(): void {
@@ -438,6 +478,7 @@ export class Room {
 
   dispose(): void {
     this.clearTimer();
+    this.endHold();
     if (this.botTimer) {
       clearTimeout(this.botTimer);
       this.botTimer = null;

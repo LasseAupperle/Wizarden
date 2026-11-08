@@ -20,6 +20,7 @@ function stateWith(phase: ClientGameState['phase']): ClientGameState {
     trumpCard: null,
     trumpSuit: null,
     currentTrick: [],
+    lastTrick: null,
     selectedSpecials: [],
     pendingDecision: null,
     paused: false,
@@ -44,6 +45,6 @@ describe('Landing', () => {
     render(<Landing />);
     expect(screen.getByRole('heading', { name: 'Wizarden' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /create room/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /join room/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^join$/i })).toBeInTheDocument();
   });
 });

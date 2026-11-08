@@ -19,8 +19,8 @@ function FloatingCards() {
   const deco: { suit: Suit; cls: string; rot: string; dur: string }[] = [
     { suit: 'red', cls: 'left-[8%] top-[18%]', rot: '-12deg', dur: '7s' },
     { suit: 'blue', cls: 'right-[10%] top-[24%]', rot: '10deg', dur: '8.5s' },
-    { suit: 'green', cls: 'left-[14%] bottom-[16%]', rot: '8deg', dur: '9s' },
-    { suit: 'yellow', cls: 'right-[12%] bottom-[20%]', rot: '-9deg', dur: '7.8s' },
+    { suit: 'green', cls: 'left-[6%] bottom-[6%]', rot: '8deg', dur: '9s' },
+    { suit: 'yellow', cls: 'right-[6%] bottom-[9%]', rot: '-9deg', dur: '7.8s' },
   ];
   return (
     <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>
@@ -112,7 +112,13 @@ export function Landing() {
             placeholder="ABCD"
             aria-label={t('roomCode')}
           />
-          <Button size="lg" variant="secondary" onClick={join} disabled={!code.trim()}>
+          <Button
+            size="lg"
+            variant="secondary"
+            className="shrink-0 whitespace-nowrap"
+            onClick={join}
+            disabled={!code.trim()}
+          >
             {t('joinRoom')}
           </Button>
         </div>

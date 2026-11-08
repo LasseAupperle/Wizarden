@@ -43,6 +43,8 @@ export interface WizardenServerOptions {
   botDelayMs?: number;
   leaderboard?: LeaderboardStore;
   redisUrl?: string;
+  /** Override how long a finished trick is held on the table (tests: 0). */
+  trickHoldMs?: number;
   /** Override the empty-lobby grace period (tests). */
   lobbyGraceMs?: number;
 }
@@ -94,6 +96,7 @@ export function createWizardenServer(options: WizardenServerOptions = {}): Wizar
       enableDebug,
       roundSummaryMs: options.roundSummaryMs,
       botDelayMs: options.botDelayMs,
+      trickHoldMs: options.trickHoldMs,
       leaderboard,
     },
     {

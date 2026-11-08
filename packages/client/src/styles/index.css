@@ -133,6 +133,22 @@ body {
     box-shadow: 0 0 60px -10px rgba(0, 0, 0, 0.6);
   }
 }
+/* The game screen fills exactly one screen (no page scroll while playing). */
+.app-frame.fit-screen {
+  height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  min-height: 0;
+  overflow: hidden;
+}
+/* PC: the game screen gets a wide table layout (Game.tsx / WideTable). */
+.app-frame.wide {
+  max-width: 84rem;
+}
+/* The frame receives focus on screen change for screen readers; never draw a
+   ring around the whole app. */
+.app-frame:focus,
+.app-frame:focus-visible {
+  outline: none;
+}
 
 h1,
 h2,
@@ -146,6 +162,29 @@ h2,
   outline: 2px solid var(--accent);
   outline-offset: 2px;
   border-radius: 6px;
+}
+
+/* the winning card of a finished trick */
+@keyframes win-glow {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 2px var(--gold),
+      0 0 14px 2px rgba(217, 164, 65, 0.35);
+  }
+  50% {
+    box-shadow:
+      0 0 0 2px var(--gold),
+      0 0 26px 6px rgba(217, 164, 65, 0.55);
+  }
+}
+.animate-win {
+  /* static highlight first, so it survives reduced motion */
+  box-shadow:
+    0 0 0 2px var(--gold),
+    0 0 18px 4px rgba(217, 164, 65, 0.45);
+  animation: win-glow 1.2s ease-in-out infinite;
+  border-radius: var(--radius-card);
 }
 
 /* card slides into the trick area */

@@ -98,6 +98,15 @@ for shared-link previews. After changing the icon, regenerate them with
 image deps). The OG tags point at `https://wizarden.netlify.app` — update
 `index.html` if the Netlify site lives elsewhere.
 
+## Layouts
+
+- **Phone (default):** a single portrait column; the game screen fits one screen
+  (no scrolling) with your hand fanned into at most two rows. On touch devices
+  the first tap lifts a card, the second plays it.
+- **PC (≥1024px wide):** the game screen switches to an oval table with seats in
+  play order, a persistent scoreboard panel and keyboard play (← → Enter; type a
+  number + Enter to bid). Landing, lobby and game over stay a centred column.
+
 ## Leaderboard persistence
 
 Game state is in-memory by design. The **leaderboard** is the one cross-game
@@ -116,7 +125,7 @@ falls back to in-memory (resets on restart). Full-game win = 1 pt, half-game =
 
 ## Versioning
 
-All packages share one version (currently **0.2.0**), bumped on every delivered
+All packages share one version (currently **0.3.0**), bumped on every delivered
 build; see [`CHANGELOG.md`](./CHANGELOG.md).
 
 ## Build plan

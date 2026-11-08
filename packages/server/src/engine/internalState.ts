@@ -48,6 +48,9 @@ export interface RoundState {
   // Set when a Vampire's fresh-flip (copying the Werewolf) reveals a Wizard/
   // chooseTrump card mid-play: the trick resumes after that trump choice.
   resumeTrickAfterTrump?: boolean;
+  /** The most recently finished trick of this round (for display). `seq` is
+   *  unique across the whole game so the server can detect a new one. */
+  lastTrick?: { seq: number; plays: TrickPlay[]; winnerSeat: number | null };
 }
 
 export interface GameState {
@@ -67,6 +70,7 @@ export interface GameState {
   lastRoundResult: RoundResult[] | null;
   standings: PlayerPublic[] | null; // populated at gameOver
   paused?: boolean; // true while waiting on a disconnected seat (Phase 5)
+  trickSeq?: number; // count of finished tricks this game (drives RoundState.lastTrick.seq)
   pausedForName?: string | null;
 }
 

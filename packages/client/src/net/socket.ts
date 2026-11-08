@@ -110,7 +110,7 @@ export function getSocket(): Socket {
   socket.on(ServerEvents.decisionPrompt, (d: PendingDecision) => store().setPendingDecision(d));
 
   socket.on(ServerEvents.error, (e: ErrorPayload) => {
-    const message = friendlyError(e.code, e.message);
+    const message = friendlyError(e.code, e.message, store().settings.language);
     if (isSessionFatal(e.code)) {
       storage.clearSession();
       store().resetToLanding(message);

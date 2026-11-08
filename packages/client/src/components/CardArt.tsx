@@ -58,7 +58,7 @@ export const SPECIAL_TINT: Record<SpecialType, string> = {
   werewolf: 'text-[#9aa6ff]',
   juggler: 'text-gold',
   cloud: 'text-suit-blue',
-  witch: 'text-accent',
+  witch: 'text-[var(--emblem-witch)]',
   vampire: 'text-suit-red',
 };
 

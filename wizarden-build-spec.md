@@ -748,3 +748,13 @@ Render's free tier sleeps after ~15 min without inbound traffic, and a sleep/res
 ### 24.2 PWA raster icons + social preview image — ✅ built (v0.2.0)
 `packages/client/scripts/gen-icons.mjs` (`pnpm --filter @wizarden/client gen:icons`) rasterises the original `icon.svg` with Playwright's Chromium (no native image dependency) into: PNG `icon-192` / `icon-512` (`any`), `icon-maskable-512` (art inside the 80% safe zone), `apple-touch-icon` (180), `favicon-32`, and a 1200×630 `og-image.png`. The manifest lists the SVG + PNGs; `index.html` links the apple-touch icon and uses the PNG OG image with `twitter:card = summary_large_image`. Outputs are committed; all art original (§22 / `ASSETS.md`).
 - **Still deferred:** an optional minimal app-shell **service worker** for faster repeat loads (do not cache game traffic).
+
+## 25. Interface v0.3.0 (from the phone/PC review)
+
+Built after the v0.2.0 interface review; supersedes the bottom-sheet decision UI and the single phone-width game layout of §13/§14.
+
+- **Trick hold.** `finalizeTrick` records `RoundState.lastTrick { seq, plays, winnerSeat|null }`. The server `Room` detects a new `seq`, sets `holdingTrick` for `TRICK_HOLD_MS` (2s, shared constant; `trickHoldMs` option, 0 in tests), rejects plays/bids and pauses bots meanwhile, and adds the hold to the round-end delay. `ClientGameState.lastTrick` is non-null only while held. Clients render it with the winner highlighted and a caption.
+- **Decisions inline.** All decisions and play-time announcements render in an inline panel above the hand (`components/game/ActionPanel.tsx`) — never an overlay — so the hand stays visible. Juggler pass / Witch give use the hand as the picker.
+- **Phone game layout.** The game screen fits the viewport (`.app-frame.fit-screen`); the hand is fanned into ≤2 rows (`layoutHand`), cards carry a corner index; touch uses tap-to-lift then tap-to-play; bids use a stepper beyond 11 options and show bids-so-far vs cards.
+- **PC game layout (≥1024px).** `WideTable`: seats on an ellipse in play order (you at the bottom), played cards in front of seats, trump in the centre, round summary in the centre at round end; scoreboard side panel; keyboard play. Landing/lobby/game over keep the centred column.
+- **i18n.** Every game-screen string, suit/card name, decision prompt and error message is translated (en/nl/de); only the long rules texts stay English.

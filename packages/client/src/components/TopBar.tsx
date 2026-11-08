@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react';
+import { Trophy } from 'lucide-react';
 import { AppMenu } from './AppMenu.js';
 import { IconButton } from './ui/IconButton.js';
 import { LeaderboardPopup } from './LeaderboardPopup.js';
@@ -20,7 +21,7 @@ export function TopBar({ center, right }: Props) {
       <div className="flex items-center gap-2">
         {right}
         <IconButton label={t('leaderboard')} onClick={() => setBoard(true)}>
-          🏆
+          <Trophy size={20} className="text-gold" aria-hidden />
         </IconButton>
       </div>
       <LeaderboardPopup open={board} onClose={() => setBoard(false)} />

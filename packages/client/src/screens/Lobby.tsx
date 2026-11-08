@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Bot, Check, Copy, Link2 } from 'lucide-react';
 import { roundsForPlayerCount, type ClientGameState } from '@wizarden/shared';
 import { TopBar } from '../components/TopBar.js';
 import { Button } from '../components/ui/Button.js';
@@ -18,11 +19,22 @@ function fullRoundsFor(count: number): number {
 export function Lobby({ game }: { game: ClientGameState }) {
   const t = useT();
   const [copied, setCopied] = useState(false);
+  const [codeCopied, setCodeCopied] = useState(false);
   const you = game.players.find((p) => p.seat === game.yourSeat);
   const isHost = you?.isHost ?? false;
   const count = game.players.length;
   const min = DEBUG_ENABLED ? 2 : 3;
   const canStart = isHost && count >= min && count <= 6;
+
+  const copyCode = async () => {
+    try {
+      await navigator.clipboard.writeText(game.roomCode);
+    } catch {
+      /* clipboard may be blocked; the code is visible to read out */
+    }
+    setCodeCopied(true);
+    setTimeout(() => setCodeCopied(false), 1500);
+  };
 
   const invite = async () => {
     const link = `${window.location.origin}?room=${game.roomCode}`;
@@ -39,13 +51,30 @@ export function Lobby({ game }: { game: ClientGameState }) {
     <div className="flex min-h-dvh flex-col">
       <TopBar
         center={
-          <span className="font-mono tracking-widest" aria-label={t('roomCode')}>
-            {game.roomCode}
-          </span>
+          <button
+            type="button"
+            onClick={copyCode}
+            className="inline-flex items-center gap-1.5 rounded-ui px-2 py-1 hover:bg-elevated"
+            aria-label={t('roomCode')}
+            title={codeCopied ? t('codeCopied') : t('copyCode')}
+          >
+            <span className="font-mono tracking-widest">{game.roomCode}</span>
+            {codeCopied ? (
+              <Check size={14} className="text-positive" aria-hidden />
+            ) : (
+              <Copy size={14} className="text-muted" aria-hidden />
+            )}
+          </button>
         }
         right={
           <Button size="md" variant="secondary" onClick={invite}>
-            {copied ? t('linkCopied') : `🔗 ${t('invite')}`}
+            {copied ? (
+              t('linkCopied')
+            ) : (
+              <>
+                <Link2 size={16} aria-hidden /> {t('invite')}
+              </>
+            )}
           </Button>
         }
       />
@@ -111,7 +140,7 @@ export function Lobby({ game }: { game: ClientGameState }) {
 
         {DEBUG_ENABLED && isHost && count < 6 && (
           <Button variant="secondary" fullWidth onClick={() => intents.addBot()}>
-            🤖 {t('addBot')}
+            <Bot size={18} aria-hidden /> {t('addBot')}
           </Button>
         )}
       </main>

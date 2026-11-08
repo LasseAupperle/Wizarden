@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { BookOpen, CircleHelp, LogOut, Menu, Settings } from 'lucide-react';
 import { IconButton } from './ui/IconButton.js';
 import { Button } from './ui/Button.js';
 import { Modal, Sheet } from './ui/Modal.js';
@@ -28,19 +29,19 @@ export function AppMenu() {
   return (
     <>
       <IconButton label={t('menu')} onClick={() => setMenuOpen(true)}>
-        ☰
+        <Menu size={20} aria-hidden />
       </IconButton>
 
       <Sheet open={menuOpen} onClose={() => setMenuOpen(false)} title={t('menu')}>
         <div className="flex flex-col gap-2">
           <Button variant="secondary" fullWidth onClick={() => open('settings')}>
-            ⚙️ {t('settings')}
+            <Settings size={18} aria-hidden /> {t('settings')}
           </Button>
           <Button variant="secondary" fullWidth onClick={() => open('howto')}>
-            ❔ {t('howToPlay')}
+            <CircleHelp size={18} aria-hidden /> {t('howToPlay')}
           </Button>
           <Button variant="secondary" fullWidth onClick={() => open('rules')}>
-            📖 {t('fullRules')}
+            <BookOpen size={18} aria-hidden /> {t('fullRules')}
           </Button>
           {inRoom && (
             <Button
@@ -51,7 +52,7 @@ export function AppMenu() {
                 setConfirmLeave(true);
               }}
             >
-              🚪 {t('leaveGame')}
+              <LogOut size={18} aria-hidden /> {t('leaveGame')}
             </Button>
           )}
         </div>

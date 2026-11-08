@@ -26,6 +26,7 @@ describe('Phase 6 — bots (debug only)', () => {
       enableDebug: true,
       botDelayMs: 0,
       roundSummaryMs: 0,
+      trickHoldMs: 0,
       leaderboard,
     });
     room.selectedSpecials = ALL_SPECIALS;
@@ -61,7 +62,12 @@ describe('Phase 6 — bots (debug only)', () => {
     const clients: Socket[] = [];
 
     beforeEach(async () => {
-      server = createWizardenServer({ enableDebug: true, botDelayMs: 1, roundSummaryMs: 8 });
+      server = createWizardenServer({
+        enableDebug: true,
+        botDelayMs: 1,
+        roundSummaryMs: 8,
+        trickHoldMs: 0,
+      });
       url = `http://localhost:${await server.listen(0)}`;
     });
     afterEach(async () => {

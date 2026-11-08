@@ -9,11 +9,14 @@ import { Landing } from './screens/Landing.js';
 import { Lobby } from './screens/Lobby.js';
 import { Game } from './screens/Game.js';
 import { GameOver } from './screens/GameOver.js';
+import { useIsWide } from './components/game/useMedia.js';
+import { cn } from './lib/cn.js';
 
 export default function App() {
   const game = useGameStore((s) => s.game);
   const settings = useGameStore((s) => s.settings);
   const frameRef = useRef<HTMLDivElement>(null);
+  const wide = useIsWide();
 
   // Connect once; apply persisted theme/language.
   useEffect(() => {
@@ -34,7 +37,16 @@ export default function App() {
   return (
     <div className="min-h-dvh text-ink">
       <RotateHint />
-      <div ref={frameRef} tabIndex={-1} className="app-frame flex flex-col outline-none">
+      <div
+        ref={frameRef}
+        tabIndex={-1}
+        className={cn(
+          'app-frame flex flex-col outline-none',
+          // the game fills exactly one screen; on PC it gets the wide table
+          screen === 'game' && 'fit-screen',
+          screen === 'game' && wide && 'wide',
+        )}
+      >
         <ConnectionBanner />
         <ErrorToasts />
         {screen === 'landing' && <Landing />}

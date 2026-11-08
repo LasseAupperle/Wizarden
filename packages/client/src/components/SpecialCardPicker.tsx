@@ -1,5 +1,7 @@
 import type { SpecialType } from '@wizarden/shared';
 import { ALL_SPECIALS, SPECIAL_META } from '../lib/specials.js';
+import { specialName } from '../lib/cardNames.js';
+import { useT } from '../lib/i18n.js';
 import { SpecialIcon } from './CardArt.js';
 import { cn } from '../lib/cn.js';
 
@@ -12,6 +14,7 @@ interface Props {
 /** Host picks which specials are in play. Dragon & Fairy are kept paired by the
  *  parent's toggle handler, so an invalid (unpaired) selection is impossible. */
 export function SpecialCardPicker({ selected, onToggle, disabled }: Props) {
+  const t = useT();
   return (
     <div className="grid grid-cols-2 gap-2">
       {ALL_SPECIALS.map((type) => {
@@ -24,6 +27,7 @@ export function SpecialCardPicker({ selected, onToggle, disabled }: Props) {
             aria-pressed={on}
             disabled={disabled}
             onClick={() => onToggle(type)}
+            title={m.rule}
             className={cn(
               'flex items-center gap-2 rounded-ui border p-2.5 text-left transition disabled:opacity-50',
               on ? 'border-accent bg-accent/15' : 'border-line bg-elevated hover:border-accent/50',
@@ -39,8 +43,10 @@ export function SpecialCardPicker({ selected, onToggle, disabled }: Props) {
               <SpecialIcon special={type} size={18} />
             </span>
             <span className="min-w-0">
-              <span className="block truncate text-sm font-semibold text-ink">{m.name}</span>
-              {paired && <span className="block text-[10px] text-gold">paired</span>}
+              <span className="block truncate text-sm font-semibold text-ink">
+                {specialName(t, type)}
+              </span>
+              {paired && <span className="block text-[10px] text-gold">{t('paired')}</span>}
             </span>
           </button>
         );

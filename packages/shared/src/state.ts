@@ -47,6 +47,12 @@ export interface RoundResult {
 }
 
 // What a given client receives (their own hand is included; others' hands are counts):
+/** A trick that just finished, shown briefly so everyone sees the last card + winner. */
+export interface CompletedTrick {
+  plays: TrickPlay[];
+  winnerSeat: number | null; // null = no winner (e.g. voided by the Bomb)
+}
+
 export interface ClientGameState {
   roomCode: string;
   phase: Phase;
@@ -62,6 +68,9 @@ export interface ClientGameState {
   trumpCard: Card | null; // the flipped card (null if none / last base round)
   trumpSuit: Suit | null; // resolved trump colour (null = no trump)
   currentTrick: TrickPlay[];
+  /** The trick that just finished, present only while the server holds it on the
+   *  table (TRICK_HOLD_MS) before the next lead; null otherwise. */
+  lastTrick: CompletedTrick | null;
   selectedSpecials: SpecialType[]; // which specials are in play this game
   pendingDecision: PendingDecision | null; // THIS player's own outstanding decision, else null
   paused: boolean; // true while waiting on a disconnected player

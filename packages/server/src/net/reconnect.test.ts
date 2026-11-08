@@ -42,7 +42,7 @@ describe('Phase 5 — disconnect / reconnect / host migration / departures', () 
   const clients: TestClient[] = [];
 
   beforeEach(async () => {
-    server = createWizardenServer({ roundSummaryMs: 10, enableDebug: false });
+    server = createWizardenServer({ roundSummaryMs: 10, enableDebug: false, trickHoldMs: 0 });
     const port = await server.listen(0);
     url = `http://localhost:${port}`;
   });

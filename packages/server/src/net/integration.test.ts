@@ -69,7 +69,7 @@ describe('Phase 4 — server protocol over real sockets', () => {
   const clients: TestClient[] = [];
 
   beforeEach(async () => {
-    server = createWizardenServer({ roundSummaryMs: 10, enableDebug: false });
+    server = createWizardenServer({ roundSummaryMs: 10, enableDebug: false, trickHoldMs: 0 });
     const port = await server.listen(0);
     url = `http://localhost:${port}`;
   });

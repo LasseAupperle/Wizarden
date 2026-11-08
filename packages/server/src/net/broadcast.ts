@@ -50,6 +50,7 @@ export function projectFor(room: Room, seat: number): ClientGameState {
       trumpCard: null,
       trumpSuit: null,
       currentTrick: [],
+      lastTrick: null,
       selectedSpecials: room.selectedSpecials,
       pendingDecision: null,
       paused: false,
@@ -86,6 +87,10 @@ export function projectFor(room: Room, seat: number): ClientGameState {
     trumpCard: g.round?.trumpCard ?? null,
     trumpSuit: g.round?.trumpSuit ?? null,
     currentTrick: g.round?.currentTrick ?? [],
+    lastTrick:
+      room.holdingTrick && g.round?.lastTrick
+        ? { plays: g.round.lastTrick.plays, winnerSeat: g.round.lastTrick.winnerSeat }
+        : null,
     selectedSpecials: g.selectedSpecials,
     pendingDecision: g.decisions[seat] ?? null,
     paused: g.paused ?? false,

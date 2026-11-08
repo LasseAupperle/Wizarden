@@ -1,3 +1,4 @@
+import { Coffee, Pause } from 'lucide-react';
 import { Banner } from './ui/Banner.js';
 import { Button } from './ui/Button.js';
 import { useGameStore } from '../store/gameStore.js';
@@ -13,7 +14,8 @@ export function ConnectionBanner() {
   if (game?.paused) {
     return (
       <Banner tone="warn">
-        ⏸ {t('pausedFor')} {game.pausedForName ?? '…'}
+        <Pause size={14} className="inline" aria-hidden /> {t('pausedFor')}{' '}
+        {game.pausedForName ?? '…'}
       </Banner>
     );
   }
@@ -30,7 +32,7 @@ export function ConnectionBanner() {
           </Button>
         }
       >
-        ☕ {t('wakingServer')}
+        <Coffee size={14} className="inline" aria-hidden /> {t('wakingServer')}
       </Banner>
     );
   }

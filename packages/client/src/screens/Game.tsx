@@ -1,436 +1,311 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import {
-  ROUND_SUMMARY_MS,
-  SUITS,
-  type Card,
-  type ClientGameState,
-  type PendingDecision,
-  type Suit,
-} from '@wizarden/shared';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ROUND_SUMMARY_MS, type Card, type ClientGameState } from '@wizarden/shared';
+import { ChartColumn } from 'lucide-react';
 import { TopBar } from '../components/TopBar.js';
-import { Button } from '../components/ui/Button.js';
-import { Badge } from '../components/ui/Badge.js';
-import { Sheet } from '../components/ui/Modal.js';
+import { IconButton } from '../components/ui/IconButton.js';
 import { Scoreboard } from '../components/Scoreboard.js';
-import { CardView, cardLabel } from '../components/CardView.js';
-import { SUIT_META } from '../lib/specials.js';
+import { Hand } from '../components/game/Hand.js';
+import { BidPicker } from '../components/game/BidPicker.js';
+import { ActionPanel } from '../components/game/ActionPanel.js';
+import { TrickArea } from '../components/game/TrickArea.js';
+import { TrumpWidget } from '../components/game/TrumpWidget.js';
+import { RoundSummary } from '../components/game/RoundSummary.js';
+import { ScoreTable } from '../components/game/ScoreTable.js';
+import { WideTable } from '../components/game/WideTable.js';
+import { PlayerChip, YourStatus } from '../components/game/PlayerChip.js';
+import { useCoarsePointer, useIsWide } from '../components/game/useMedia.js';
+import {
+  bidsSoFar,
+  isPlayable,
+  nameOf,
+  playOrderFromYou,
+  sortHand,
+} from '../components/game/helpers.js';
 import { intents } from '../net/socket.js';
 import { playPlaceCard } from '../sound/placeCard.js';
 import { useT } from '../lib/i18n.js';
-import { cn } from '../lib/cn.js';
 
-function ledSuitOf(trick: ClientGameState['currentTrick']): { suit: Suit | null; freed: boolean } {
-  for (const p of trick) {
-    if (p.card.kind === 'wizard') return { suit: null, freed: true };
-    if (p.card.kind === 'number') return { suit: p.card.suit, freed: false };
-  }
-  return { suit: null, freed: false };
-}
+/** What tapping a hand card does right now. */
+type HandMode = 'play' | 'pass' | 'give' | 'none';
 
-function isPlayable(card: Card, hand: Card[], trick: ClientGameState['currentTrick']): boolean {
-  if (card.kind !== 'number') return true;
-  const { suit, freed } = ledSuitOf(trick);
-  if (freed || suit === null || card.suit === suit) return true;
-  return !hand.some((c) => c.kind === 'number' && c.suit === suit);
-}
-
-const KIND_ORDER: Record<Card['kind'], number> = { jester: 0, number: 1, special: 2, wizard: 3 };
-const SUIT_ORDER: Record<Suit, number> = { red: 0, blue: 1, green: 2, yellow: 3 };
-
-/** Stable, readable hand order: by kind, then suit, then value. */
-function sortHand(hand: Card[]): Card[] {
-  return [...hand].sort((a, b) => {
-    if (a.kind !== b.kind) return KIND_ORDER[a.kind] - KIND_ORDER[b.kind];
-    if (a.kind === 'number' && b.kind === 'number') {
-      return SUIT_ORDER[a.suit] - SUIT_ORDER[b.suit] || a.value - b.value;
-    }
-    return a.id.localeCompare(b.id);
-  });
-}
-
-function SuitRow({ onPick, extra }: { onPick: (s: Suit) => void; extra?: ReactNode }) {
-  return (
-    <div className="flex flex-wrap gap-2">
-      {SUITS.map((s) => (
-        <Button key={s} variant="secondary" onClick={() => onPick(s)}>
-          {SUIT_META[s].glyph} {SUIT_META[s].label}
-        </Button>
-      ))}
-      {extra}
-    </div>
-  );
-}
+/** Specials that need a choice (Wizard/Jester, or a colour) before they're played. */
+const needsAnnounce = (c: Card) =>
+  c.kind === 'special' &&
+  (c.special === 'shapeshifter' || c.special === 'juggler' || c.special === 'cloud');
 
 export function Game({ game }: { game: ClientGameState }) {
   const t = useT();
+  const wide = useIsWide();
+  const coarse = useCoarsePointer();
   const [scoreOpen, setScoreOpen] = useState(false);
   const [announceCard, setAnnounceCard] = useState<Card | null>(null);
   const [witchTake, setWitchTake] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [bidValue, setBidValue] = useState(0);
 
-  const you = game.players.find((p) => p.seat === game.yourSeat);
-  const opponents = game.players.filter((p) => p.seat !== game.yourSeat);
-  const yourTurnToPlay = game.phase === 'trick' && game.currentTurnSeat === game.yourSeat;
-  const yourTurnToBid = game.phase === 'bidding' && game.currentTurnSeat === game.yourSeat;
+  const held = game.lastTrick;
   const decision = game.pendingDecision;
+  const yourTurnToPlay =
+    game.phase === 'trick' && game.currentTurnSeat === game.yourSeat && !held && !announceCard;
+  const yourTurnToBid =
+    game.phase === 'bidding' && game.currentTurnSeat === game.yourSeat && !decision;
+  const showSummary = game.phase === 'roundEnd' && !held && !!game.lastRoundResult;
+  const hand = useMemo(() => sortHand(game.yourHand), [game.yourHand]);
 
-  // place-card sound on every card that lands in the trick (yours and others')
-  const trickLen = game.currentTrick.length;
-  const prevTrickLen = useRef(trickLen);
+  const handMode: HandMode =
+    decision?.kind === 'jugglerPass'
+      ? 'pass'
+      : decision?.kind === 'witchSwap' && witchTake
+        ? 'give'
+        : yourTurnToPlay
+          ? 'play'
+          : 'none';
+
+  const enabled = useCallback(
+    (card: Card) =>
+      handMode === 'play'
+        ? isPlayable(card, game.yourHand, game.currentTrick)
+        : handMode !== 'none',
+    [handMode, game.yourHand, game.currentTrick],
+  );
+
+  // Reset transient choices when the situation changes.
+  useEffect(() => setSelectedId(null), [handMode, game.yourHand.length]);
+  useEffect(() => setBidValue(0), [game.roundNumber]);
   useEffect(() => {
-    if (trickLen > prevTrickLen.current) playPlaceCard();
-    prevTrickLen.current = trickLen;
-  }, [trickLen]);
+    if (decision?.kind !== 'witchSwap') setWitchTake(null);
+  }, [decision?.kind]);
 
-  // round-end countdown to the automatic next-round advance (server-scheduled)
+  // Place-card sound whenever a card lands on the table (yours or others').
+  const onTable = held ? held.plays.length : game.currentTrick.length;
+  const prevOnTable = useRef(onTable);
+  useEffect(() => {
+    if (onTable > prevOnTable.current) playPlaceCard();
+    prevOnTable.current = onTable;
+  }, [onTable]);
+
+  // Round-end countdown to the automatic next round (starts when the summary shows).
   const [countdown, setCountdown] = useState(0);
   useEffect(() => {
-    if (game.phase !== 'roundEnd') return;
+    if (!showSummary) return;
     setCountdown(Math.ceil(ROUND_SUMMARY_MS / 1000));
     const id = setInterval(() => setCountdown((c) => (c > 0 ? c - 1 : 0)), 1000);
     return () => clearInterval(id);
-  }, [game.phase, game.roundNumber]);
+  }, [showSummary, game.roundNumber]);
 
-  // screen-reader announcements (§19)
-  const announce = useMemo(() => {
-    if (game.paused) return `Paused, waiting for ${game.pausedForName ?? 'a player'}`;
-    if (decision) return `Your decision: ${decision.kind}`;
-    if (yourTurnToBid) return 'Your turn to bid';
-    if (yourTurnToPlay) return 'Your turn to play';
-    if (game.phase === 'roundEnd') return `Round ${game.roundNumber} scored`;
-    return '';
-  }, [
-    game.paused,
-    game.pausedForName,
-    decision,
-    yourTurnToBid,
-    yourTurnToPlay,
-    game.phase,
-    game.roundNumber,
-  ]);
-
-  const play = (card: Card) => {
-    if (card.kind === 'special' && card.special === 'shapeshifter') return setAnnounceCard(card);
-    if (card.kind === 'special' && (card.special === 'juggler' || card.special === 'cloud'))
-      return setAnnounceCard(card);
-    playPlaceCard();
-    intents.play(card.id, { type: 'none' });
-  };
-
-  const trumpChip = game.trumpSuit ? (
-    <Badge tone="accent">
-      {SUIT_META[game.trumpSuit].glyph} {SUIT_META[game.trumpSuit].label}
-    </Badge>
-  ) : (
-    <Badge>no trump</Badge>
+  /** Do the hand action for a card (play / pass / give). */
+  const perform = useCallback(
+    (card: Card) => {
+      setSelectedId(null);
+      if (handMode === 'play') {
+        if (needsAnnounce(card)) return setAnnounceCard(card);
+        playPlaceCard();
+        intents.play(card.id, { type: 'none' });
+      } else if (handMode === 'pass') {
+        intents.resolve({ cardId: card.id });
+      } else if (handMode === 'give' && witchTake) {
+        intents.resolve({ takeId: witchTake, giveId: card.id });
+        setWitchTake(null);
+      }
+    },
+    [handMode, witchTake],
   );
 
-  return (
-    <div className="flex min-h-dvh flex-col">
-      <TopBar
-        center={
-          <span className="flex items-center justify-center gap-2 text-sm">
-            R{game.roundNumber}/{game.totalRounds} {trumpChip}
-          </span>
+  /** Touch: first tap lifts the card, second tap plays it. Mouse: click plays. */
+  const activate = (card: Card) => {
+    if (!enabled(card) || handMode === 'none') return;
+    if (coarse && selectedId !== card.id) return setSelectedId(card.id);
+    perform(card);
+  };
+
+  // Keyboard play (PC): ← → choose a card, Enter plays; while bidding type a
+  // number (or ↑ ↓) and press Enter.
+  const digits = useRef<{ text: string; at: number }>({ text: '', at: 0 });
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const el = e.target as HTMLElement | null;
+      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA')) return;
+      if (document.querySelector('[role="dialog"]')) return;
+      if (yourTurnToBid) {
+        const max = game.roundNumber;
+        if (/^[0-9]$/.test(e.key)) {
+          const now = Date.now();
+          const text = now - digits.current.at < 900 ? digits.current.text + e.key : e.key;
+          digits.current = { text, at: now };
+          setBidValue(Math.min(max, Number(text)));
+        } else if (e.key === 'ArrowUp' || e.key === 'ArrowRight') {
+          e.preventDefault();
+          setBidValue((v) => Math.min(max, v + 1));
+        } else if (e.key === 'ArrowDown' || e.key === 'ArrowLeft') {
+          e.preventDefault();
+          setBidValue((v) => Math.max(0, v - 1));
+        } else if (e.key === 'Enter') {
+          e.preventDefault();
+          intents.bid(bidValue);
         }
+        return;
+      }
+      if (handMode === 'none') return;
+      const choices = hand.filter(enabled);
+      if (choices.length === 0) return;
+      const idx = choices.findIndex((c) => c.id === selectedId);
+      if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+        e.preventDefault();
+        const d = e.key === 'ArrowRight' ? 1 : -1;
+        const next =
+          idx < 0 ? (d > 0 ? 0 : choices.length - 1) : (idx + d + choices.length) % choices.length;
+        setSelectedId(choices[next]!.id);
+      } else if ((e.key === 'Enter' || e.key === ' ') && idx >= 0) {
+        // Only when a card is selected, so Enter on a focused button still works.
+        if (document.activeElement?.tagName === 'BUTTON' && e.key === ' ') return;
+        e.preventDefault();
+        perform(choices[idx]!);
+      } else if (e.key === 'Escape') {
+        setSelectedId(null);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [yourTurnToBid, bidValue, game.roundNumber, handMode, hand, enabled, selectedId, perform]);
+
+  // Screen-reader announcements (§19).
+  const announce = useMemo(() => {
+    if (game.paused) return `${t('pausedFor')} ${game.pausedForName ?? ''}`;
+    if (held) {
+      return held.winnerSeat == null
+        ? t('noOneWins')
+        : held.winnerSeat === game.yourSeat
+          ? t('youWinTrick')
+          : t('winsTrick', { name: nameOf(game, held.winnerSeat) });
+    }
+    if (decision) return t('yourDecision');
+    if (yourTurnToBid) return `${t('yourBid')} — ${t('yourTurn')}`;
+    if (yourTurnToPlay) return t('yourTurn');
+    if (showSummary) return t('roundN', { n: game.roundNumber });
+    return '';
+  }, [game, held, decision, yourTurnToBid, yourTurnToPlay, showSummary, t]);
+
+  const hint =
+    coarse && selectedId
+      ? t('tapAgainToPlay')
+      : wide && handMode !== 'none'
+        ? t('keyboardHint')
+        : null;
+
+  const actions = (
+    <>
+      {yourTurnToBid && (
+        <BidPicker
+          cards={game.roundNumber}
+          bidsSoFar={bidsSoFar(game)}
+          value={bidValue}
+          onChange={setBidValue}
+          onBid={(n) => intents.bid(n)}
+          showKeyHint={wide}
+        />
+      )}
+      <ActionPanel
+        game={game}
+        announceCard={announceCard}
+        onCancelAnnounce={() => setAnnounceCard(null)}
+        witchTake={witchTake}
+        setWitchTake={setWitchTake}
+      />
+    </>
+  );
+  const handView = (
+    <Hand
+      cards={hand}
+      size={wide ? 'lg' : 'md'}
+      enabled={enabled}
+      interactive={handMode !== 'none'}
+      selectedId={selectedId}
+      onActivate={activate}
+      maxRows={2}
+    />
+  );
+  const status = (
+    <div className="sr-only" role="status" aria-live="polite">
+      {announce}
+    </div>
+  );
+  const roundLabel = t('roundOf', { n: game.roundNumber, total: game.totalRounds });
+
+  if (wide) {
+    return (
+      <div className="flex min-h-0 flex-1 flex-col">
+        <TopBar center={<span className="text-base">{roundLabel}</span>} />
+        {status}
+        <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_20rem]">
+          <div className="flex min-h-0 flex-col">
+            <div className="min-h-0 flex-1 p-3">
+              <WideTable game={game} showSummary={showSummary} countdown={countdown} />
+            </div>
+            <div className="space-y-2 border-t border-line p-3">
+              <YourStatus game={game} hint={hint} />
+              <div className="mx-auto max-w-2xl space-y-2">{actions}</div>
+              <div className="mx-auto max-w-5xl pt-3">{handView}</div>
+            </div>
+          </div>
+          <aside className="min-h-0 overflow-y-auto border-l border-line p-4">
+            <h2 className="mb-3 font-display text-lg text-ink">{t('scoreboard')}</h2>
+            <ScoreTable game={game} compact />
+          </aside>
+        </div>
+      </div>
+    );
+  }
+
+  const opponents = playOrderFromYou(game).slice(1);
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <TopBar
+        center={<span className="text-sm">{roundLabel}</span>}
         right={
-          <Button size="md" variant="secondary" onClick={() => setScoreOpen(true)}>
-            📊
-          </Button>
+          <IconButton label={t('scoreboard')} onClick={() => setScoreOpen(true)}>
+            <ChartColumn size={20} aria-hidden />
+          </IconButton>
         }
       />
+      {status}
 
-      <div className="sr-only" role="status" aria-live="polite">
-        {announce}
-      </div>
-
-      {/* opponents */}
-      <div className="flex flex-wrap justify-center gap-2 p-3">
+      {/* opponents, in play order after you (left → right) */}
+      <div className="flex flex-wrap justify-center gap-1.5 px-2 pt-2">
         {opponents.map((p) => (
           <div
             key={p.seat}
-            className={cn(
-              'rounded-ui border px-3 py-1.5 text-center text-xs',
-              game.currentTurnSeat === p.seat
-                ? 'border-accent bg-accent/15 animate-turn'
-                : 'border-line bg-elevated',
-            )}
+            className={opponents.length > 3 ? 'w-[calc(33.333%-0.25rem)]' : 'min-w-0 flex-1'}
           >
-            <div className="flex items-center gap-1 font-semibold text-ink">
-              <span
-                className={`h-1.5 w-1.5 rounded-full ${p.connected ? 'bg-positive' : 'bg-muted'}`}
-              />
-              {p.name}
-              {!p.inPlay && <span className="text-muted">(left)</span>}
-              {game.awaitingDecisionSeats.includes(p.seat) && <span aria-label="deciding">⏳</span>}
-            </div>
-            <div className="text-muted">
-              {p.bid ?? '–'} / {p.tricksWon} · {p.totalScore}
-            </div>
+            <PlayerChip game={game} player={p} />
           </div>
         ))}
       </div>
 
-      {/* trick area — a faint violet "table" glow so the centre reads as a surface */}
-      <div className="relative flex flex-1 flex-col items-center justify-center gap-3 p-4 bg-[radial-gradient(60%_45%_at_50%_42%,rgba(124,92,255,0.10),transparent_70%)]">
-        {/* trump — always visible during the round */}
-        <div className="absolute left-3 top-3 flex flex-col items-center gap-1">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-muted">
-            {t('trump')}
-          </span>
-          {game.trumpCard ? (
-            <CardView card={game.trumpCard} size="sm" />
-          ) : (
-            <span className="rounded-ui border border-line bg-elevated px-2 py-2 text-center text-[10px] text-muted">
-              {t('noTrump')}
-            </span>
-          )}
-          {game.trumpSuit && (
-            <span
-              className="text-[11px] font-bold"
-              style={{ color: `var(--suit-${game.trumpSuit})` }}
-            >
-              {SUIT_META[game.trumpSuit].glyph} {SUIT_META[game.trumpSuit].label}
-            </span>
-          )}
-        </div>
-
-        {game.phase === 'roundEnd' && game.lastRoundResult ? (
-          <div className="animate-pop min-w-[14rem] rounded-ui border border-line bg-elevated p-4 text-center shadow-card">
-            <div className="mb-2 font-display text-lg text-ink">Round {game.roundNumber}</div>
-            {game.lastRoundResult.map((r) => (
-              <div key={r.seat} className="flex items-center justify-between gap-4 text-sm">
-                <span className="text-muted">
-                  {game.players.find((p) => p.seat === r.seat)?.name}
-                </span>
-                <span className={cn('font-bold', r.delta >= 0 ? 'text-positive' : 'text-negative')}>
-                  {r.delta >= 0 ? `+${r.delta}` : r.delta}
-                </span>
-              </div>
-            ))}
-            <div className="mt-3 text-xs text-muted">
-              {game.roundNumber >= game.totalRounds
-                ? 'Final scores…'
-                : `Next round in ${countdown}s…`}
-            </div>
+      {/* the table */}
+      <div className="flex min-h-0 flex-1 items-center gap-1 overflow-y-auto bg-[radial-gradient(60%_45%_at_50%_45%,var(--table-from),transparent_75%)] px-2 py-2">
+        {showSummary ? (
+          <div className="flex w-full justify-center">
+            <RoundSummary game={game} countdown={countdown} />
           </div>
         ) : (
-          <div className="flex min-h-[6rem] flex-wrap items-center justify-center gap-2">
-            {game.currentTrick.map((p) => (
-              <div key={p.card.id} className="animate-card-in flex flex-col items-center">
-                <CardView card={p.card} />
-                <span className="mt-1 text-[10px] text-muted">
-                  {game.players.find((pl) => pl.seat === p.seat)?.name}
-                </span>
-              </div>
-            ))}
-          </div>
+          <>
+            <TrumpWidget game={game} className="w-14 shrink-0 self-start" />
+            <div className="flex min-w-0 flex-1 justify-center">
+              <TrickArea game={game} />
+            </div>
+            <div className="w-14 shrink-0" aria-hidden />
+          </>
         )}
       </div>
 
-      {/* your status + hand (always visible — incl. while bidding) */}
-      <div
-        className={cn(
-          'border-t p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] transition-colors',
-          yourTurnToPlay || yourTurnToBid ? 'animate-turn border-accent' : 'border-line',
-        )}
-      >
-        <div className="mb-2 flex items-center justify-center gap-2 text-sm text-muted">
-          <span className="font-semibold text-ink">{you?.name}</span>
-          <Badge tone="accent">bid {you?.bid ?? '–'}</Badge>
-          <Badge>won {you?.tricksWon ?? 0}</Badge>
-          <Badge tone="gold">{you?.totalScore ?? 0}</Badge>
-          {yourTurnToPlay && (
-            <span className="rounded-full bg-grad-accent px-2.5 py-0.5 text-xs font-bold text-white shadow-card">
-              ✋ {t('yourTurn')}
-            </span>
-          )}
-        </div>
-
-        {/* bidding: inline above the hand so your cards stay visible */}
-        {yourTurnToBid && (
-          <div className="mb-3 rounded-ui border border-accent/50 bg-elevated p-2 shadow-card">
-            <div className="mb-1.5 text-center text-xs font-semibold text-ink">{t('yourBid')}</div>
-            <div className="flex flex-wrap justify-center gap-1.5">
-              {Array.from({ length: game.roundNumber + 1 }, (_, n) => (
-                <Button key={n} size="md" variant="secondary" onClick={() => intents.bid(n)}>
-                  {n}
-                </Button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        <div className="flex flex-wrap justify-center gap-1.5">
-          {sortHand(game.yourHand).map((card) => (
-            <CardView
-              key={card.id}
-              card={card}
-              onClick={() => play(card)}
-              disabled={!yourTurnToPlay || !isPlayable(card, game.yourHand, game.currentTrick)}
-            />
-          ))}
-        </div>
+      {/* you: status, choices, hand — always visible */}
+      <div className="space-y-2 border-t border-line px-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2">
+        <YourStatus game={game} hint={hint} />
+        {actions}
+        <div className="pt-3">{handView}</div>
       </div>
-
-      {/* decision sheet */}
-      <Sheet open={!!decision} onClose={() => {}} title="Your decision">
-        {decision && (
-          <DecisionPrompt
-            decision={decision}
-            game={game}
-            witchTake={witchTake}
-            setWitchTake={setWitchTake}
-          />
-        )}
-      </Sheet>
-
-      {/* announce / declare sheet */}
-      <Sheet
-        open={!!announceCard}
-        onClose={() => setAnnounceCard(null)}
-        title={announceCard ? cardLabel(announceCard) : ''}
-      >
-        {announceCard &&
-          announceCard.kind === 'special' &&
-          announceCard.special === 'shapeshifter' && (
-            <div className="flex gap-2">
-              {(['wizard', 'jester'] as const).map((as) => (
-                <Button
-                  key={as}
-                  fullWidth
-                  onClick={() => {
-                    playPlaceCard();
-                    intents.play(announceCard.id, { type: 'shapeshifter', as });
-                    setAnnounceCard(null);
-                  }}
-                >
-                  {as}
-                </Button>
-              ))}
-            </div>
-          )}
-        {announceCard &&
-          announceCard.kind === 'special' &&
-          announceCard.special !== 'shapeshifter' && (
-            <SuitRow
-              onPick={(suit) => {
-                playPlaceCard();
-                intents.play(announceCard.id, { type: 'announceSuit', suit });
-                setAnnounceCard(null);
-              }}
-            />
-          )}
-      </Sheet>
 
       <Scoreboard game={game} open={scoreOpen} onClose={() => setScoreOpen(false)} />
     </div>
-  );
-}
-
-function DecisionPrompt({
-  decision,
-  game,
-  witchTake,
-  setWitchTake,
-}: {
-  decision: PendingDecision;
-  game: ClientGameState;
-  witchTake: string | null;
-  setWitchTake: (id: string | null) => void;
-}) {
-  const you = game.players.find((p) => p.seat === game.yourSeat);
-
-  if (decision.kind === 'chooseTrump') {
-    return (
-      <>
-        <p className="mb-2 text-muted">Choose the trump colour.</p>
-        <SuitRow onPick={(suit) => intents.resolve({ suit })} />
-      </>
-    );
-  }
-  if (decision.kind === 'werewolfSwap') {
-    return (
-      <>
-        <p className="mb-2 text-muted">Swap the Werewolf and set trump.</p>
-        <SuitRow
-          onPick={(suit) => intents.resolve({ suit })}
-          extra={
-            <Button variant="ghost" onClick={() => intents.resolve({ suit: null })}>
-              No trump
-            </Button>
-          }
-        />
-      </>
-    );
-  }
-  if (decision.kind === 'cloudAdjust') {
-    const bid0 = (you?.bid ?? 0) === 0;
-    return (
-      <>
-        <p className="mb-2 text-muted">Adjust your bid by ±1.</p>
-        <div className="flex gap-2">
-          <Button onClick={() => intents.resolve({ delta: 1 })}>+1</Button>
-          <Button
-            variant="secondary"
-            disabled={bid0}
-            onClick={() => intents.resolve({ delta: -1 })}
-          >
-            −1
-          </Button>
-        </div>
-      </>
-    );
-  }
-  if (decision.kind === 'jugglerPass') {
-    return (
-      <>
-        <p className="mb-2 text-muted">Pass one card clockwise.</p>
-        <div className="flex flex-wrap gap-1.5">
-          {game.yourHand.map((c) => (
-            <CardView
-              key={c.id}
-              card={c}
-              size="sm"
-              onClick={() => intents.resolve({ cardId: c.id })}
-            />
-          ))}
-        </div>
-      </>
-    );
-  }
-  // witchSwap
-  const takeCards = game.currentTrick.filter((p) => decision.trickCardIds.includes(p.card.id));
-  return (
-    <>
-      <p className="mb-2 text-muted">
-        {witchTake ? 'Give one of your cards.' : 'Take a card from the trick.'}
-      </p>
-      {!witchTake ? (
-        <div className="flex flex-wrap gap-1.5">
-          {takeCards.map((p) => (
-            <CardView
-              key={p.card.id}
-              card={p.card}
-              size="sm"
-              onClick={() => setWitchTake(p.card.id)}
-            />
-          ))}
-        </div>
-      ) : (
-        <div className="flex flex-wrap gap-1.5">
-          {game.yourHand.map((c) => (
-            <CardView
-              key={c.id}
-              card={c}
-              size="sm"
-              onClick={() => {
-                intents.resolve({ takeId: witchTake, giveId: c.id });
-                setWitchTake(null);
-              }}
-            />
-          ))}
-        </div>
-      )}
-    </>
   );
 }

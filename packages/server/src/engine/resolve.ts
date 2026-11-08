@@ -210,6 +210,12 @@ export function finalizeTrick(state: GameState): void {
   if (!res.voided) playerAt(state, res.wouldBeWinner)!.tricksWon += 1;
   round.leadSeat = res.wouldBeWinner; // would-be winner leads next even after a Bomb
   round.resolution = undefined;
+  state.trickSeq = (state.trickSeq ?? 0) + 1;
+  round.lastTrick = {
+    seq: state.trickSeq,
+    plays: round.currentTrick,
+    winnerSeat: res.voided ? null : res.wouldBeWinner,
+  };
   round.currentTrick = [];
 
   const cardsRemain = activeSeats(state).some((s) => playerAt(state, s)!.hand.length > 0);

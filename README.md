@@ -51,6 +51,7 @@ cp packages/client/.env.example packages/client/.env.local
 | Server | `ENABLE_DEBUG` | `"true"` enables bots + 2-seat start (off in prod) |
 | Server | `REDIS_URL` | _Optional_ Upstash Redis (`rediss://…`) for a persistent leaderboard |
 | Server | `LOG_LEVEL` | _Optional_ pino level (default `info`) |
+| Server | `KEEP_AWAKE_URL` | _Optional_ public URL to self-ping while games are active (defaults to Render's `RENDER_EXTERNAL_URL`) |
 | Client | `VITE_SERVER_URL` | Backend URL the client connects to = the Render URL |
 | Client | `VITE_ENABLE_DEBUG` | `"true"` enables debug UI (off in prod) |
 | Client | `VITE_SENTRY_DSN` | _Optional_ Sentry DSN for client error tracking |
@@ -80,11 +81,13 @@ fast on a missing or malformed required value.
 > server…" state and retries. In-memory game state is lost on a cold start, so a
 > stale session routes cleanly back to the Landing screen.
 >
-> **Keep-warm:** [`.github/workflows/keep-warm.yml`](./.github/workflows/keep-warm.yml)
-> pings `/health` every 14 min from ~10:00 to 01:00 (Amsterdam time) so the server is
-> usually awake when you play (~480 of Render's 750 free hours/month). Override the
-> URL with a repo variable `KEEP_WARM_URL`. GitHub pauses scheduled workflows after
-> 60 days with no repo activity; re-enable it in the Actions tab if needed.
+>
+> **Awake only while playing:** the server is free to sleep until someone opens the
+> site. While any room has a connected player — or an unfinished game had one within
+> the last 30 min (locked phones, mobile-data drops) — it requests its own public URL
+> (`RENDER_EXTERNAL_URL`, set by Render) every 10 min so it can't sleep mid-game.
+> Once nobody is playing it stops, and Render spins it down ~15 min later.
+> `KEEP_AWAKE_URL` overrides the URL; locally (unset) it's off.
 
 ## PWA icons & link preview
 

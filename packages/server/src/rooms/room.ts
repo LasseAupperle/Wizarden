@@ -70,6 +70,8 @@ export class Room {
   gameMode: GameMode = 'full';
   started = false;
   game: GameState | null = null;
+  /** When a human was last seen connected (ms epoch) — for keep-awake grace. */
+  lastHumanSeenAt = Date.now();
 
   /** Invoked after any state change (incl. the timer-driven auto-advance). */
   onChange: () => void = () => {};
@@ -135,6 +137,18 @@ export class Room {
 
   isEmpty(): boolean {
     return this.players.every((p) => !p.connected && !p.isBot);
+  }
+
+  /**
+   * Does this room still need the server awake? Yes while any human is
+   * connected, or — for an unfinished game — within `graceMs` of the last human
+   * dropping (everyone's phone locked / mobile data blip), so the game survives
+   * to be rejoined. Bot-only activity never counts.
+   */
+  needsServer(now: number, graceMs: number): boolean {
+    if (this.players.some((p) => p.connected && !p.isBot)) return true;
+    const unfinished = this.started && this.game !== null && this.game.phase !== 'gameOver';
+    return unfinished && now - this.lastHumanSeenAt < graceMs;
   }
 
   configureSpecials(seat: number, specials: SpecialType[]): RoomResult {
@@ -330,6 +344,7 @@ export class Room {
     if (!p) return;
     p.connected = false;
     p.socketId = null;
+    if (!p.isBot) this.lastHumanSeenAt = Date.now();
     this.migrateHost();
     this.recomputePause();
   }

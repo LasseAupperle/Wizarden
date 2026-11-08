@@ -8,8 +8,9 @@ share one version, bumped on every delivered build.
 - **PWA:** PNG icons (192/512, maskable 512, 180 apple-touch, 32 favicon) and a
   1200×630 Open Graph image, generated from `icon.svg` via `gen:icons`; manifest
   and `index.html` updated (`summary_large_image` link previews).
-- **Ops:** keep-warm GitHub Actions workflow pings `/health` every 14 min during
-  play hours to avoid Render free-tier cold starts.
+- **Ops:** the server keeps itself awake only while a game is in use (self-ping of
+  its public URL every 10 min while any player is connected, or for 30 min after
+  everyone drops from an unfinished game); otherwise Render may sleep it as usual.
 - **CI:** Playwright E2E smoke test now runs in CI (and actually passes — its
   lobby selectors were fixed); optional `PW_CHROMIUM_PATH` for pre-installed browsers.
 - **Server:** `/health` reports the real package version instead of a hardcoded string.

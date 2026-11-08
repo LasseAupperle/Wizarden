@@ -11,11 +11,16 @@ import { InMemoryLeaderboard, type LeaderboardStore } from './rooms/leaderboard.
 import { RedisLeaderboard } from './rooms/redisLeaderboard.js';
 import { registerSocketHandlers } from './net/handlers.js';
 import { loadConfig } from './config.js';
+import { startKeepAwake } from './keepAwake.js';
 import { logger } from './logger.js';
 
 // Cap inbound socket payloads well above any real intent but far below abuse
 // (default is 1 MB). Our largest payload is a tiny JSON object.
 const MAX_SOCKET_PAYLOAD_BYTES = 16 * 1024;
+
+// How long an unfinished game keeps the server awake after its last human
+// dropped (locked phones, mobile-data blips) before we let Render sleep.
+const ABANDONED_GAME_GRACE_MS = 30 * 60 * 1000;
 
 // Reported by /health. Read from this package's package.json (one level above
 // both src/ and dist/) so it never drifts from the delivered build's version.
@@ -119,4 +124,11 @@ if (isMain) {
   void server.listen(config.port).then((boundPort) => {
     logger.info({ port: boundPort, debug: config.enableDebug }, 'server listening');
   });
+  if (config.keepAwakeUrl) {
+    startKeepAwake({
+      baseUrl: config.keepAwakeUrl,
+      shouldStayAwake: () => server.roomManager.anyNeedsServer(Date.now(), ABANDONED_GAME_GRACE_MS),
+    });
+    logger.info({ url: config.keepAwakeUrl }, 'keep-awake enabled while games are active');
+  }
 }

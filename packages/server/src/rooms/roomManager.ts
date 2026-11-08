@@ -45,6 +45,12 @@ export class RoomManager {
     }
   }
 
+  /** True while any room needs the server awake (see Room.needsServer). */
+  anyNeedsServer(now: number, graceMs: number): boolean {
+    for (const room of this.rooms.values()) if (room.needsServer(now, graceMs)) return true;
+    return false;
+  }
+
   count(): number {
     return this.rooms.size;
   }

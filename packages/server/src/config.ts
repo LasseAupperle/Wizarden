@@ -6,6 +6,8 @@ export interface ServerConfig {
   clientOrigin: string;
   enableDebug: boolean;
   redisUrl?: string;
+  /** Public URL to self-ping while games are active; unset = keep-awake off. */
+  keepAwakeUrl?: string;
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
@@ -36,5 +38,21 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
     process.exit(1);
   }
 
-  return { port, clientOrigin, enableDebug: env.ENABLE_DEBUG === 'true', redisUrl };
+  // Render sets RENDER_EXTERNAL_URL automatically; KEEP_AWAKE_URL overrides it.
+  // Unset (e.g. local dev) = no keep-awake pinging.
+  const keepAwakeUrl = (env.KEEP_AWAKE_URL ?? env.RENDER_EXTERNAL_URL)?.trim() || undefined;
+  if (keepAwakeUrl && !/^https?:\/\//.test(keepAwakeUrl)) {
+    console.error(
+      `[wizarden] FATAL: KEEP_AWAKE_URL must start with http:// or https:// (got "${keepAwakeUrl}")`,
+    );
+    process.exit(1);
+  }
+
+  return {
+    port,
+    clientOrigin,
+    enableDebug: env.ENABLE_DEBUG === 'true',
+    redisUrl,
+    keepAwakeUrl,
+  };
 }

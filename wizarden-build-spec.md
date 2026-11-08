@@ -738,10 +738,12 @@ A persistent **leaderboard** of game wins, surfaced as a popup from the pre-lobb
 
 Originally deferred; status as of v0.2.0. None block v1.
 
-### 24.1 Keep-warm pinger (Render free-tier cold start) — ✅ built (v0.2.0)
-Render's free tier sleeps after ~15 min idle; the first connection then takes tens of seconds (the client already shows a "waking server" state). Built as **`.github/workflows/keep-warm.yml`**: a GitHub Actions schedule hitting `/health` every 14 min during likely play hours only (08–23 UTC ≈ 10:00–01:00 Amsterdam), ≈ 480 h/month of Render's 750 h free pool. Target URL overridable via repo variable `KEEP_WARM_URL`; `workflow_dispatch` for a manual ping.
-- **Do NOT** add a server-side `setInterval` self-ping — it doesn't prevent Render from sleeping an idle instance and burns hours.
-- **Still deferred:** snapshotting live `GameState` to Redis so an in-progress game survives a restart (heavier; not recommended for a friends game).
+### 24.1 Stay awake while playing (Render free-tier sleep) — ✅ built (v0.2.0)
+Render's free tier sleeps after ~15 min without inbound traffic, and a sleep/restart wipes every in-memory game. Requirement: the server **may sleep until someone opens the site**, but **must not sleep while a game is being played**.
+- Built as `server/src/keepAwake.ts`: every 10 min, if `RoomManager.anyNeedsServer()` (any room with a connected human, or an unfinished game whose last human dropped < 30 min ago), the server requests its own **public** URL (`RENDER_EXTERNAL_URL`, overridable by `KEEP_AWAKE_URL`) `/health`, which arrives through Render's edge as inbound traffic. Otherwise it does nothing and Render spins the service down. Disabled when no URL is configured (local dev).
+- **Not** a scheduled external pinger (GitHub Actions / UptimeRobot): rejected — it keeps the server up when nobody is playing.
+- **Verify on Render:** the service's Events tab should show no spin-down during a game, and one ~15 min after everyone has left.
+- **Still deferred:** snapshotting live `GameState` to Redis so an in-progress game survives a restart/redeploy.
 
 ### 24.2 PWA raster icons + social preview image — ✅ built (v0.2.0)
 `packages/client/scripts/gen-icons.mjs` (`pnpm --filter @wizarden/client gen:icons`) rasterises the original `icon.svg` with Playwright's Chromium (no native image dependency) into: PNG `icon-192` / `icon-512` (`any`), `icon-maskable-512` (art inside the 80% safe zone), `apple-touch-icon` (180), `favicon-32`, and a 1200×630 `og-image.png`. The manifest lists the SVG + PNGs; `index.html` links the apple-touch icon and uses the PNG OG image with `twitter:card = summary_large_image`. Outputs are committed; all art original (§22 / `ASSETS.md`).

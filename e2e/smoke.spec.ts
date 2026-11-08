@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 
 // Smoke E2E: two real browser contexts create/join a room and start a game.
 // Requires Chromium (`pnpm e2e:install`) and runs the full prod-like stack via
-// the webServers in playwright.config.ts. Opt-in; not part of CI.
+// the webServers in playwright.config.ts. Also runs in CI (e2e job).
 test('two players create + join a room and start a game (with a bot)', async ({ browser }) => {
   const host = await browser.newContext();
   const guest = await browser.newContext();
@@ -13,15 +13,9 @@ test('two players create + join a room and start a game (with a bot)', async ({ 
   await hp.goto('/');
   await hp.getByLabel(/your name/i).fill('Alice');
   await hp.getByRole('button', { name: /create room/i }).click();
-  await expect(hp.getByText(/players/i)).toBeVisible();
+  await expect(hp.getByRole('heading', { name: /players/i })).toBeVisible();
 
-  const code = (
-    await hp
-      .locator('header')
-      .getByText(/^[A-Z2-9]{4}$/)
-      .first()
-      .textContent()
-  )?.trim();
+  const code = (await hp.getByLabel(/room code/i).textContent())?.trim();
   expect(code).toMatch(/^[A-Z2-9]{4}$/);
 
   // Guest joins via the shareable room link.

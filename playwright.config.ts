@@ -1,8 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
-// Opt-in browser E2E (§5). Run once: `pnpm e2e:install` (downloads Chromium),
-// then `pnpm test:e2e`. Not wired into CI by default to avoid the browser
-// download there — the socket integration + component suites cover the rest.
+// Browser E2E (§5). Locally: `pnpm e2e:install` once (downloads Chromium), then
+// `pnpm test:e2e`. Also runs in CI as the `e2e` job (.github/workflows/ci.yml).
 //
 // The webServers build + serve a production-like stack: the server on :3001 and
 // the client preview on :4173 (built with VITE_SERVER_URL pointing at the server).
@@ -10,12 +9,25 @@ export default defineConfig({
   testDir: './e2e',
   timeout: 60_000,
   fullyParallel: false,
-  retries: 0,
+  retries: process.env.CI ? 1 : 0,
+  reporter: process.env.CI ? [['list'], ['html', { open: 'never' }]] : 'list',
   use: {
     baseURL: 'http://localhost:4173',
     trace: 'on-first-retry',
   },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  projects: [
+    {
+      name: 'chromium',
+      use: {
+        ...devices['Desktop Chrome'],
+        // Optional: point at a pre-installed Chromium (e.g. a cloud sandbox whose
+        // browser build differs from this Playwright version's). Unset = default.
+        launchOptions: process.env.PW_CHROMIUM_PATH
+          ? { executablePath: process.env.PW_CHROMIUM_PATH }
+          : {},
+      },
+    },
+  ],
   webServer: [
     {
       command:

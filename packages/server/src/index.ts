@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { createServer, type Server as HttpServer } from 'node:http';
 import { pathToFileURL } from 'node:url';
 import express, { type Express } from 'express';
@@ -15,6 +16,14 @@ import { logger } from './logger.js';
 // Cap inbound socket payloads well above any real intent but far below abuse
 // (default is 1 MB). Our largest payload is a tiny JSON object.
 const MAX_SOCKET_PAYLOAD_BYTES = 16 * 1024;
+
+// Reported by /health. Read from this package's package.json (one level above
+// both src/ and dist/) so it never drifts from the delivered build's version.
+const SERVER_VERSION: string = (
+  JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as {
+    version: string;
+  }
+).version;
 
 export interface WizardenServerOptions {
   clientOrigin?: string;
@@ -52,7 +61,7 @@ export function createWizardenServer(options: WizardenServerOptions = {}): Wizar
   app.disable('x-powered-by');
   app.use(helmet()); // security headers (§3)
   app.get('/health', (_req, res) => {
-    res.json({ ok: true, name: 'wizarden-server', version: '0.1.0' });
+    res.json({ ok: true, name: 'wizarden-server', version: SERVER_VERSION });
   });
   app.get('/leaderboard', (_req, res) => {
     res.json({ entries: leaderboard.top(5) });

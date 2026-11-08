@@ -1,6 +1,6 @@
 {
   "name": "@wizarden/client",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -8,7 +8,8 @@
     "build": "tsc --noEmit -p tsconfig.json && vite build",
     "preview": "vite preview --port 4173",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "gen:icons": "node scripts/gen-icons.mjs"
   },
   "dependencies": {
     "@fontsource/cinzel": "^5.1.0",

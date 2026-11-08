@@ -734,20 +734,15 @@ A persistent **leaderboard** of game wins, surfaced as a popup from the pre-lobb
 
 ---
 
-## 24. Future upgrades (deferred, not built)
+## 24. Future upgrades
 
-Deliberately deferred — captured here so they aren't lost. None block v1.
+Originally deferred; status as of v0.2.0. None block v1.
 
-### 24.1 Keep-warm pinger (Render free-tier cold start)
-Render's free tier sleeps after ~15 min idle; the first connection then takes tens of seconds (the client already shows a "waking server" state). Mitigate by pinging `/health` on an interval so the service stays warm:
-- **Option A (recommended):** an external uptime monitor (e.g. UptimeRobot free) or a **GitHub Actions scheduled workflow** hitting `https://wizarden-server.onrender.com/health` every ~14 min.
-- **Free-hours budget:** a single always-warm free web service ≈ 720 h/month, within Render's 750 h free pool — but to stay safe, only ping during likely play hours (e.g. 10:00–01:00) rather than 24/7.
+### 24.1 Keep-warm pinger (Render free-tier cold start) — ✅ built (v0.2.0)
+Render's free tier sleeps after ~15 min idle; the first connection then takes tens of seconds (the client already shows a "waking server" state). Built as **`.github/workflows/keep-warm.yml`**: a GitHub Actions schedule hitting `/health` every 14 min during likely play hours only (08–23 UTC ≈ 10:00–01:00 Amsterdam), ≈ 480 h/month of Render's 750 h free pool. Target URL overridable via repo variable `KEEP_WARM_URL`; `workflow_dispatch` for a manual ping.
 - **Do NOT** add a server-side `setInterval` self-ping — it doesn't prevent Render from sleeping an idle instance and burns hours.
-- A heavier alternative (not recommended for a friends game): snapshot live `GameState` to Redis (now available) so an in-progress game survives a restart.
+- **Still deferred:** snapshotting live `GameState` to Redis so an in-progress game survives a restart (heavier; not recommended for a friends game).
 
-### 24.2 PWA raster icons + social preview image
-The web manifest currently ships a single scalable **SVG** icon (`purpose: "any maskable"`, `sizes: "any"`), which Chrome/Android accept for install. Still missing for full coverage:
-- **PNG icons 192 / 512 / 180** — iOS "Add to Home Screen" needs a PNG `apple-touch-icon` (180×180); some stores/checks want 192 + 512 PNG.
-- **`og-image.png` (1200×630)** — a raster Open Graph image so shared room links render a proper preview card (SVG OG images don't render on most scrapers).
-- **How:** a one-off build script rasterising the existing `icon.svg` with `sharp` or `@resvg/resvg-js` (both add a native build dep) — or an online SVG→PNG converter. Keep all art original (§22 / `ASSETS.md`).
-- Optional: a minimal app-shell **service worker** for faster repeat loads (do not cache game traffic).
+### 24.2 PWA raster icons + social preview image — ✅ built (v0.2.0)
+`packages/client/scripts/gen-icons.mjs` (`pnpm --filter @wizarden/client gen:icons`) rasterises the original `icon.svg` with Playwright's Chromium (no native image dependency) into: PNG `icon-192` / `icon-512` (`any`), `icon-maskable-512` (art inside the 80% safe zone), `apple-touch-icon` (180), `favicon-32`, and a 1200×630 `og-image.png`. The manifest lists the SVG + PNGs; `index.html` links the apple-touch icon and uses the PNG OG image with `twitter:card = summary_large_image`. Outputs are committed; all art original (§22 / `ASSETS.md`).
+- **Still deferred:** an optional minimal app-shell **service worker** for faster repeat loads (do not cache game traffic).

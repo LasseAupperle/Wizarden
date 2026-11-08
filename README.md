@@ -28,8 +28,9 @@ pnpm lint         # ESLint
 pnpm format       # Prettier --write
 pnpm dev          # shared (watch) + server + client
 
-# opt-in browser E2E (downloads Chromium, runs the prod-like stack):
+# browser E2E (downloads Chromium once, runs the prod-like stack; also in CI):
 pnpm e2e:install && pnpm test:e2e
+# (sandbox with a pre-installed Chromium: PW_CHROMIUM_PATH=/path/to/chrome pnpm test:e2e)
 ```
 
 - Client dev: http://localhost:5173 · Server dev: http://localhost:3001 (`/health`, `/leaderboard`)
@@ -71,12 +72,28 @@ fast on a missing or malformed required value.
 - **Server → Render** via [`render.yaml`](./render.yaml). Set `CLIENT_ORIGIN` to the Netlify origin.
 - **Client → Netlify** via [`netlify.toml`](./netlify.toml). Set `VITE_SERVER_URL` to the Render URL.
 - **Both must build on Node 22+** (pnpm 11.8 uses `node:sqlite`). `NODE_VERSION=22` is set in both configs.
-- CI ([`.github/workflows/ci.yml`](./.github/workflows/ci.yml)) runs lint + build + tests (incl. a fuzz batch) on every push/PR.
+- CI ([`.github/workflows/ci.yml`](./.github/workflows/ci.yml)) runs typecheck + lint + format check + build + tests (incl. a fuzz batch), then the Playwright E2E smoke test, on every push/PR.
+- `GET /health` reports the server's `package.json` version, so you can confirm which build Render is running.
 
 > **Render free-tier cold start:** the service sleeps when idle; the first
 > connection of the day can take up to ~50s. The client shows a "Waking up the
 > server…" state and retries. In-memory game state is lost on a cold start, so a
 > stale session routes cleanly back to the Landing screen.
+>
+> **Keep-warm:** [`.github/workflows/keep-warm.yml`](./.github/workflows/keep-warm.yml)
+> pings `/health` every 14 min from ~10:00 to 01:00 (Amsterdam time) so the server is
+> usually awake when you play (~480 of Render's 750 free hours/month). Override the
+> URL with a repo variable `KEEP_WARM_URL`. GitHub pauses scheduled workflows after
+> 60 days with no repo activity; re-enable it in the Actions tab if needed.
+
+## PWA icons & link preview
+
+`packages/client/public/` holds the original `icon.svg` plus generated PNGs
+(192/512, maskable 512, 180 apple-touch, 32 favicon) and a 1200×630 `og-image.png`
+for shared-link previews. After changing the icon, regenerate them with
+`pnpm --filter @wizarden/client gen:icons` (uses Playwright's Chromium; no native
+image deps). The OG tags point at `https://wizarden.netlify.app` — update
+`index.html` if the Netlify site lives elsewhere.
 
 ## Leaderboard persistence
 
@@ -93,6 +110,11 @@ falls back to in-memory (resets on restart). Full-game win = 1 pt, half-game =
 2. Open two browser contexts; create a room in one, join by the copied link in the other; add a bot; pick Full/Half + some specials; start.
 3. Play a full game: bids, legal-move gating, every decision prompt (including the collective Juggler pass), auto-advancing round summaries, game over, Play Again.
 4. Refresh mid-game → rejoin same seat. Remove a player mid-game → the rest continue. Confirm the leaderboard updates after a real (non-bot) game.
+
+## Versioning
+
+All packages share one version (currently **0.2.0**), bumped on every delivered
+build; see [`CHANGELOG.md`](./CHANGELOG.md).
 
 ## Build plan
 
